@@ -8,7 +8,7 @@
 
 ## 使用
 
-[私有网站](https://trade-arcade-payoff-lab.pearlywillow.chatgpt.site) · [GitHub 私有仓库](https://github.com/biubiubeast/trading-arcade) · [v0.4.0 发布记录](https://github.com/biubiubeast/trading-arcade/releases/tag/v0.4.0)
+[私有网站](https://trade-arcade-payoff-lab.pearlywillow.chatgpt.site) · [GitHub 仓库](https://github.com/biubiubeast/trading-arcade) · [v0.4.0 发布记录](https://github.com/biubiubeast/trading-arcade/releases/tag/v0.4.0)
 
 路由：`#play`、`#courses`、`#gamma`、`#structured`。网站分享链接不改变访问权限。
 
@@ -22,6 +22,12 @@ node scripts/check.mjs
 ```
 
 有 npm 时也可用 `npm run dev`、`npm test`、`npm run check`。dist 是部署源码，无需构建。项目独立于上层黄金期权项目，不使用其服务器、密钥或数据库。
+
+## Ubuntu 自托管
+
+支持 `/tradegames/` 子路径。`main` 是更新来源，`ubuntu/deploy.sh` 执行自动检查、资源完整性验证与原子切换。没有第三方运行依赖。主机、目录、账号和认证设置通过 Git 之外的运行配置管理，公开仓库仅保留通用约定。具体命令由部署人员在私有操作说明中提供。
+
+此补丁不改变平台 v0.4.0 的游戏、模型或存储版本。见 [自托管约定](docs/UBUNTU.md)。
 
 ## 模型边界
 

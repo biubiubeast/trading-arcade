@@ -2,3 +2,12 @@
 node_modules/
 *.tar.gz
 .sites-local/
+
+# Private runtime and local tool state
+.sites-runtime/
+work/
+outputs/
+.env*
+*.sqlite*
+*.pem
+*.key

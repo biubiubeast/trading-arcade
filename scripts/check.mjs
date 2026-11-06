@@ -17,7 +17,7 @@ async function check(dir) {
     }
   }
 }
-for (const dir of ["dist/js", "scripts", "tests"]) await check(dir);
+for (const dir of ["dist/js", "scripts", "tests", "ubuntu"]) await check(dir);
 const r = spawnSync(process.execPath, ["--check", "serve.js"], {
   stdio: "inherit",
 });
