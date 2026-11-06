@@ -1,92 +1,38 @@
-# 技术架构与扩展契约
+# 技术架构 · v0.2.0
 
-## 决策
+原生 ES Modules + HTML/CSS/SVG，零第三方运行依赖、无构建步骤。dist 是直接部署的源码目录。开发环境 Node 22+，本次验证 Node 24。
 
-首版采用原生 ES Modules、语义 HTML、CSS 与 SVG。计算与页面均在浏览器运行，零第三方运行依赖，无需构建。现阶段复杂度来自规则正确性与学习反馈，尚不需要账号、网络行情或实时服务器，因此不引入这些运行成本。
+| 模块 | 职责 |
+|---|---|
+| engine.js | 定价、固定建仓成本、完整区间风险、合法性和判题；显式接受 market 参数 |
+| levels.js | 六个基础关与自由实验配置 |
+| learning.js | 三个迁移关、六个预测题、快照、分支与恢复纯函数 |
+| storage.js | payoff:v2 命名空间、v1 无损读取迁移、结构边界校验 |
+| ui.js | 图标、金额与工具名称展示 |
+| app.js | 页面外壳、当前市场绑定、DOM 事件、图表、问答/回放/对照 |
+| scripts/releases.mjs | 冻结版本文档与校验 SHA-256 清单 |
+| scripts/check.mjs | JS 语法和版本档案检查 |
 
-这是模块化首版，尚不是完整插件运行框架。游戏元数据已独立注册；新增第二款可玩游戏时，需增加其渲染器、状态和路由，再接入统一外壳，不会仅凭新增一个元数据条目自动出现完整游戏。
+## 定价与判题
 
-## 文件结构
+`Leg={type,strike,qty}`，qty 为整数净数量，乘数 1。`Market={spot,days,vol,fee,multiplier}`。基础 MARKET 保留不变，迁移题独立覆盖参数。所有 quote/debit/pnl/analyze/checkLevel 必须使用该题 market；改变估值 IV 不能改变固定建仓成本。
 
-```text
-trading-arcade/
-  .openai/hosting.json   网站 ID 与静态发布目录
-  dist/
-    index.html          浏览器入口与元数据
-    styles.css          设计语言、组件与响应式断点
-    favicon.svg         原生矢量标识
-    js/
-      app.js            页面外壳、交互、SVG、复盘与路由
-      engine.js         无 UI 依赖的定价、组合、风险与判题
-      levels.js         数据驱动关卡与参考解
-      games.js          游戏目录元数据、开放状态与规划
-      storage.js        版本化本地存储、输入校验与容错
-  tests/engine.test.js  金融规则与存储测试
-  docs/                 产品、架构、路线与验证记录
-  serve.js              开发服务器，不参与云端运行
-```
+费用为最终净持仓的绝对单位数×fee。到期价值减净建仓成本得净损益。风险继续解析检查 S=0、执行价折点和无限远尾部，图表采样仅用于展示。未建立逐笔交易现金账本。
 
-## 数据流
+## 学习状态
 
-卡片/数量事件 → 检查工具权限与单位上限 → 合并净持仓 → 保存当前草稿 → 调用纯计算函数 → 更新曲线、指标和任务状态。
+`trade-arcade:payoff:v2`：completed、drafts、hintUse、predictions、sessions、comparisons、lastLevel、lastTransfer、lastMode。读取旧 `trade-arcade:v1` 但不删除；后续保存使用新键。预测存首次 choice，正确与否从当前题库重算。题库语义若变更，应使用新的稳定题目 ID。
 
-检验事件 → 组合合法性 → 全区间风险 + 指定价格情景 → 全部条件判定 → 保存最佳星级 → 展示复盘。图表、教学解释与判题共用同一个引擎，避免两套口径。
+每个关卡一个 timeline：cursor + 至多 50 个深复制持仓快照。撤销/重做只移动游标，撤销后编辑截断旧未来。恢复时校验每步工具、数量和执行价，并检查游标快照与当前草稿一致；异常时从当前合法草稿重建。提示状态不属于可撤销持仓，避免撤销绕过星级规则。
 
-估值滑块只改变重估输入，初始建仓报价保持固定；到期判题仍使用 days=0。UI 不生成任意用户脚本，不把用户输入送往 AI 或真实交易端。
+每题可保存一个对照，只能在本题规则下读取。回放是只读的持仓观察，不假装是交易成交或现金流水。开始新尝试清空当前回放，不提供所有历史尝试的长期分析。
 
-## 金融计算契约
+## 下一个架构节点
 
-`Leg = { type: 'call' | 'put' | 'stock' | 'cash', strike: number, qty: integer }`
+本版不承诺完整插件系统。games.js 注册元数据，但新游戏仍需真实 renderer、独立引擎和进度模块。第二款游戏前抽取 app.js 的 shell、modal、chart、play view 及 mount/unmount 生命周期，采用每游戏独立命名空间。当前零依赖实现可继续验证产品；不为尚未确定的多人模式提前引入数据库。
 
-qty 正数表示买入，负数表示卖出。非期权 strike 为 0。同类同执行价仅保留一条净持仓。现金每单位面值 10，其余乘数均为 1。
+## 发布与 GitHub
 
-```text
-fee = Σ |qᵢ| × 0.10
-debit = Σ qᵢ × entryValueᵢ + fee
-expiryPnL(S) = Σ qᵢ × intrinsicValueᵢ(S) − debit
-markPnL(S,t,σ) = Σ qᵢ × modelValueᵢ(S,t,σ) − debit
-```
+Sites 身份只在 `.openai/hosting.json` 管理，不创建重复 Site。GitHub 是独立私有源码与版本档案仓库，Sites 是部署镜像。两者可能有不同提交 SHA，但交付文件需相同；正式发布前校验源码内容，不用一次空提交假装新构建。
 
-到期收益是分段线性函数。枚举 S=0 和所有执行价可得到所有有限折点极值；右端斜率为 Σq（现货和 Call）。斜率为正则收益无限，负则损失无限。Put 在 S=0 达到有限价值；不会误判成无限收益。有限区间求线性零点，另检查最右区间。全零平坦区间单独记录。
-
-BS 正态分布使用标准多项式近似。参数与边界由测试覆盖；它是教学精度模型，不是交易系统价格服务。Delta 通过中心差分计算，仅用于自由实验分析，未承诺精确 Greeks 风险系统。
-
-## 游戏扩展
-
-新游戏接入步骤：
-
-1. 在 `games.js` 增加稳定的 id、名称、状态、说明与图标；只有存在完整可玩的实现才标记 live。
-2. 建立 `games/<id>/` 模块：`state.js`、`engine.js`、`view.js`、`levels.js`。为引擎提供独立测试。
-3. 抽取 `app.js` 中的页面外壳和 modal/chart 基础组件，建立 renderer 映射；当前 app.js 体积增加到第二款游戏时应重构，避免继续把游戏逻辑堆入单文件。
-4. 采用独立存储键 `trade-arcade:<game-id>:v1`，迁移原有 payoff 数据。新游戏版本变化须显式迁移，不覆盖旧进度。
-5. 接入公共进度结构：gameId、levelId、rulesVersion、stars、completedAt；保留游戏专用复盘记录。
-6. 通过手机/键盘操作、空状态、失败状态、恢复状态和判题可复现检查后，开放大厅入口。
-
-建议未来模块接口（设计契约，尚未实现接口加载器）：
-
-```ts
-interface GameModule<State, Action, Result> {
-  id: string;
-  rulesVersion: number;
-  initialState(seed?: number): State;
-  reduce(state: State, action: Action): State;
-  evaluate(state: State): Result;
-  serialize(state: State): unknown;
-  restore(raw: unknown): State;
-  mount(root: HTMLElement, state: State): () => void;
-}
-```
-
-动态游戏另外引入种子随机数、不可变动作日志、现金账本和统一时钟。不要复用静态“组合重构”作为逐笔交易记账，二者经济语义不同。
-
-## 存储与安全
-
-`trade-arcade:v1` 保存 completed、drafts、hintUse、lastLevel。读取时校验版本、星级、提示次数和关卡范围；草稿进一步校验工具、执行价、整数数量、重复项与上限。不执行存储中的 HTML；未来云端导入需要更严格的整个记录 schema 和大小限制。
-
-无 API 密钥、账号信息或交易数据。外链新窗口设置 noopener/noreferrer。唯一可选外部请求是字体。进度不跨浏览器同步，也没有反作弊能力。
-
-## 发布与维护
-
-静态产物位于 dist，无需打包构建。发布前跑自动检查并做浏览器冒烟验证；使用 Sites 源码工作流将确切源码提交推送、生成部署归档，再保存并部署同一版本。`.openai/hosting.json` 的 project_id 必须复用。
-
-新增金融机制先写经济规则，再实现引擎和有意义的反例测试，最后接 UI。改变费用、定价参数或评分需增加 rulesVersion 并重新确认关卡可解性。
+部署流程复用 Sites 官方 source helper：同步 → 检查 → 提交推送 → 归档 → 保存并发布同一版本。短期凭据只在会话内经 stdin 传递，不写入源码或文档。仓库不包含上层目录的 .env、交易数据或其他项目文件。

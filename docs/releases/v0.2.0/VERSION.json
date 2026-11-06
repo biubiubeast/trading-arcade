@@ -1,0 +1,42 @@
+{
+  "version": "0.2.0",
+  "status": "frozen",
+  "releaseDate": "2026-11-06",
+  "timezone": "Asia/Hong_Kong",
+  "documents": {
+    "PRODUCT.md": "cac235dcb5a4cb2c80b689bd41084de0444b7067efcb1957081c452e0b5453e8",
+    "ROADMAP.md": "5e7e5f77df5cc4f9dafd86e49ac5f9421a214e73531c955f0598aa87c52263e1",
+    "QA.md": "ca8e128207303a5760b9ad1b2e34c157d6b45e50174448348b824ffbd7fcedc3",
+    "SUMMARY.md": "c9e4ccf058964762b8acda599a1a18c02932faffa38ff6908dd2aad2f5700d52"
+  },
+  "sourceFiles": {
+    ".github/workflows/check.yml": "e6936f41f3ee925cae779b3174b81bb27f8eb2450bbe4aa5d11717eda56bd98c",
+    ".gitignore": "671981106936afaf0c9f29fbdb79d1bdbff916d170f3325a1c7400d68b94f46a",
+    ".openai/hosting.json": "f219f48dc53805090c00c2015351263704589058694b1e7cb92e00d1a1d6c105",
+    "CHANGELOG.md": "5ba55c6c7c6800702ed7b149307c4df32b61b08f2f57454f18d19def292bc27f",
+    "README.md": "195248e20ed5d68ccb76c9fdb6fedc2ddb5cdb0862ed1a7bfd6389629e79e4f5",
+    "dist/favicon.svg": "e7486407be1fd906736d6f1d497de8203ad47f2c10f4d815e8876b362ba75ffd",
+    "dist/index.html": "c7f3c7c1a81d5f07264fccc05a85df82b4354226373517faac4e737171cb4aa1",
+    "dist/js/app.js": "9afe81a17daf12a0d2d551ec232b797f6a6e20aac3105f84abdbd733c6ce725c",
+    "dist/js/engine.js": "ff1a349f60c25d1473a007ebc835a12eca34b85040f0666898875daa2d9fd425",
+    "dist/js/games.js": "3ac19ce1859e29aec20383d6d337ad4f77f826ffccaaa9a636c05e77b049383b",
+    "dist/js/learning.js": "c618d6c1e3ff29cf775d06091b72f6f93d9275ed6571df9dc4b5db5ea53db021",
+    "dist/js/levels.js": "086fef9d2b40092fb1526b21eaa08f76f8596b308e029cfd7e757d02cd6b0f1c",
+    "dist/js/storage.js": "4e9bb729ead3fbc4282777b430f0e1e4432452c74db400dd075c1238a7be7197",
+    "dist/js/ui.js": "73300607db2d88208d70c98de49590e6aca73918c687ef0c286bcf455073eb6d",
+    "dist/styles.css": "240e4f3d894d6d5731a0b1c2b94a69ded4a2e9f2cd21497a8131bc45700b1d99",
+    "docs/ARCHITECTURE.md": "6998145ba72d26676e64293ca9e90b1bb1972ee5c0419a5b81470ad08b898795",
+    "docs/DECISIONS.md": "21ec09ef89260a11e1ba0fca5a357a179d0475d829e27455a67620302637805a",
+    "docs/GOVERNANCE.md": "47085079a6fbed4af7e655f61c2900b30589723cd266938584dd4e6c0c1d0b7a",
+    "docs/PRODUCT.md": "cac235dcb5a4cb2c80b689bd41084de0444b7067efcb1957081c452e0b5453e8",
+    "docs/QA.md": "ca8e128207303a5760b9ad1b2e34c157d6b45e50174448348b824ffbd7fcedc3",
+    "docs/ROADMAP.md": "5e7e5f77df5cc4f9dafd86e49ac5f9421a214e73531c955f0598aa87c52263e1",
+    "package.json": "804e96ee1be515671edf9fdeaeeb30840e1e1ccee6b707016b5305213cdd38da",
+    "scripts/check.mjs": "f817438c2beb7be6554e982e094c36b0d728c355eee3053423792e0901db1c36",
+    "scripts/releases.mjs": "3674d87a69b534883351057ae16e98f9c148dc27502b60c1142b2b1f8f282a42",
+    "serve.js": "ac4db7d4f6f9fb89459010ee7039b685c85b73b9d386bc4db24b21339549a772",
+    "tests/engine.test.js": "a671e21cd98c28157c8905520fe6bc1f847b226958cc76bd47564c6070b584a2",
+    "tests/learning.test.js": "1b12d79b306f1182349fd6cc57cb8e12b8ef295eb2415e9f9f8f336cf687eb39",
+    "tests/releases.test.js": "4bbc4cc3afcbbc74872be2f901d58ad91ce4c1bda01e87e471c57a191155624c"
+  }
+}

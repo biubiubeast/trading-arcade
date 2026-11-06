@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "status": "frozen",
+  "releaseDate": "2026-11-06",
+  "timezone": "Asia/Hong_Kong",
+  "documents": {
+    "PRODUCT.md": "4469226e9da7cb4366b984378c67d3fea47d0be19ae431d3824b64d2b211325e",
+    "ROADMAP.md": "9aa5be356415d4d7ec83ced88c698d2a4e4c740514bd0ea47c5e275df10ed53e",
+    "QA.md": "36ab4bb6df4645110ca2aad32cdbd3adf184c323576e3b41864230dec91ccb73",
+    "SUMMARY.md": "429215d6f1e977f20a01ac9e8ee42d435bbf2be15ad2954f45c627f1c7344dfa"
+  },
+  "baselineSitesCommit": "dd65cd7b82ecc0ad69ad20f18315d664a3ebec0d",
+  "baselineGithubCommit": "69bf93c4e3354fb98b683a227141a14fb7489932",
+  "note": "Retrospective archive; original v0.1 documents preserved"
+}
