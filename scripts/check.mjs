@@ -1,10 +1,14 @@
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { verifyArchives } from "./releases.mjs";
 async function check(dir) {
   for (const name of await readdir(dir)) {
     const file = path.join(dir, name);
+    if ((await stat(file)).isDirectory()) {
+      await check(file);
+      continue;
+    }
     if (/\.(js|mjs)$/.test(name)) {
       const r = spawnSync(process.execPath, ["--check", file], {
         stdio: "inherit",

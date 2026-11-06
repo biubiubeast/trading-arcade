@@ -3563,3 +3563,763 @@ main:focus {
     height: 30px;
   }
 }
+
+/* v0.3 content workshop and Gamma Surfer */
+.course-intro {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  background: #edf2e4;
+  border: 1px solid #dce6cf;
+  border-radius: 12px;
+  padding: 30px;
+}
+.course-intro h2 {
+  font-size: 26px;
+  font-weight: 550;
+  color: #4e6b3d;
+  margin: 14px 0;
+}
+.course-intro p {
+  color: #738668;
+  font-size: 12px;
+  line-height: 1.9;
+  max-width: 550px;
+}
+.course-intro .modal-actions {
+  justify-content: flex-start;
+}
+.course-steps {
+  display: grid;
+  gap: 20px;
+  align-content: center;
+}
+.course-steps span {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 12px;
+  color: #7c8e6d;
+}
+.course-steps b {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border: 1px solid #d4e0c6;
+  background: #e5edd9;
+  border-radius: 8px;
+  font:
+    13px "DM Sans",
+    sans-serif;
+  color: #8a9e72;
+}
+.course-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.course-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+.course-card small {
+  font-size: 9px;
+  color: #91a37e;
+  letter-spacing: 1.5px;
+}
+.course-card h3 {
+  font-size: 17px;
+  color: #607c4d;
+  margin: 12px 0;
+  font-weight: 550;
+}
+.course-card p {
+  font-size: 11px;
+  color: #7b8c6e;
+  line-height: 1.9;
+  flex: 1;
+  margin-bottom: 22px;
+}
+.course-card > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.json-input {
+  width: 100%;
+  min-height: 230px;
+  resize: vertical;
+  font: 11px/1.7 monospace;
+  color: #536747;
+  background: #f6f9f0;
+  border: 1px solid #dce6d0;
+  border-radius: 7px;
+  padding: 15px;
+  margin-top: 20px;
+  white-space: pre-wrap;
+}
+.json-input.short {
+  min-height: 115px;
+  overflow-wrap: anywhere;
+}
+.import-preview {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  display: grid;
+  gap: 12px;
+}
+.import-preview li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: #6d825b;
+  flex-wrap: wrap;
+}
+.import-preview b {
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: auto;
+  color: #81916f;
+}
+.comparison-chart {
+  background: #f7faf2;
+  border: 1px solid #e4ebd9;
+  border-radius: 7px;
+  margin: 20px 0;
+  padding: 8px 15px;
+}
+.comparison-chart svg {
+  width: 100%;
+  height: auto;
+}
+.experiment-actions > a {
+  padding: 0 10px;
+}
+.level-steps {
+  flex-wrap: wrap;
+}
+.purple-tag {
+  background: #f1eaf7 !important;
+  color: #9476aa !important;
+  border-color: #e5d9ed !important;
+}
+.gamma-scenarios {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  margin-bottom: 21px;
+}
+.gamma-scenarios button {
+  background: #fff;
+  border: 1px solid #e5dfeb;
+  border-radius: 7px;
+  padding: 13px 16px;
+  text-align: left;
+}
+.gamma-scenarios button small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #a38eb2;
+}
+.gamma-scenarios button b {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #7f678f;
+  margin-top: 4px;
+}
+.gamma-scenarios button.selected {
+  background: #f0eaf5;
+  border-color: #cbbbd6;
+  box-shadow: 0 0 0 1px #e6deed;
+}
+.gamma-brief {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #f0ecf4;
+  border: 1px solid #e3daea;
+  border-radius: 8px;
+  padding: 17px 20px;
+  color: #967cad;
+  margin-bottom: 20px;
+}
+.gamma-brief b {
+  font-size: 13px;
+  color: #7d608f;
+  font-weight: 550;
+}
+.gamma-brief p {
+  font-size: 10px;
+  color: #8e7c9b;
+  margin-top: 4px;
+}
+.gamma-brief > .pill {
+  margin-left: auto;
+  background: #faf7fc;
+  border-color: #e2d8eb;
+  color: #8f78a0;
+  white-space: nowrap;
+}
+.gamma-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 19px;
+}
+.gamma-market {
+  padding: 20px 22px 0;
+}
+.gamma-market > .panel-heading h2 {
+  color: #8a719a;
+}
+.gamma-market-values {
+  display: flex;
+  gap: 24px;
+  margin: 19px 0 8px;
+  font-size: 10px;
+  color: #a28eb0;
+}
+.gamma-market-values b {
+  font:
+    18px "DM Sans",
+    sans-serif;
+  color: #7d638f;
+  margin-left: 7px;
+}
+.gamma-market > svg {
+  width: 100%;
+  height: auto;
+  min-height: 180px;
+}
+.gamma-risk {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid #ede7f2;
+  padding: 16px 0;
+  gap: 10px;
+}
+.gamma-risk span {
+  display: block;
+  font-size: 8px;
+  color: #9985a8;
+}
+.gamma-risk b {
+  font:
+    19px "DM Sans",
+    sans-serif;
+  color: #7a648a;
+  display: block;
+  margin-top: 8px;
+}
+.risk-alert {
+  color: #bb8b56 !important;
+}
+.gamma-account {
+  padding: 20px;
+}
+.gamma-account h2 {
+  font-size: 13px;
+  color: #806b8e;
+  font-weight: 550;
+}
+.account-total {
+  border-bottom: 1px solid #ebe5f0;
+  padding: 17px 0;
+}
+.account-total > span {
+  font-size: 10px;
+  color: #a08cac;
+}
+.account-total > b {
+  display: block;
+  font:
+    32px "DM Sans",
+    sans-serif;
+  letter-spacing: -0.5px;
+  color: #735c83;
+  margin: 7px 0;
+}
+.account-total > strong {
+  font:
+    16px "DM Sans",
+    sans-serif;
+}
+.account-lines {
+  margin-top: 14px;
+}
+.account-lines p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  line-height: 2.5;
+  color: #9b88a7;
+}
+.account-lines b {
+  font-weight: 500;
+  color: #80698f;
+}
+.gamma-account > .muted {
+  font-size: 9px;
+  color: #9b88a7;
+  margin-top: 15px;
+}
+.gamma-decisions {
+  grid-column: 1/-1;
+  padding: 20px 22px;
+}
+.gamma-decisions .panel-heading h2 {
+  color: #7d638f;
+}
+.hedge-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+  margin-top: 19px;
+}
+.hedge-actions > button {
+  text-align: left;
+  background: #f8f5fb;
+  border: 1px solid #e6dded;
+  border-radius: 7px;
+  padding: 18px;
+}
+.hedge-actions > button:hover {
+  background: #eee6f4;
+  border-color: #cbb7da;
+}
+.hedge-actions b {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+  color: #7b5d8f;
+}
+.hedge-actions span {
+  display: block;
+  font:
+    12px "DM Sans",
+    "Noto Sans SC",
+    sans-serif;
+  color: #9a80ac;
+  margin: 10px 0;
+}
+.hedge-actions small {
+  font-size: 9px;
+  color: #a18aae;
+}
+.gamma-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 20px;
+}
+.gamma-next > span {
+  font-size: 10px;
+  color: #9a83a8;
+}
+.gamma-next > .primary-button {
+  background: #876a9e;
+  border-color: #876a9e;
+}
+.gamma-log {
+  display: grid;
+  gap: 6px;
+}
+.gamma-log > button {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #f7f5fa;
+  border: 1px solid #ece5f1;
+  border-radius: 5px;
+  padding: 9px 13px;
+  font:
+    11px "DM Sans",
+    "Noto Sans SC",
+    sans-serif;
+  color: #967da6;
+  text-align: left;
+}
+.gamma-log > button:hover {
+  background: #f0eaf5;
+}
+.gamma-log > button > b {
+  width: 22px;
+  height: 22px;
+  background: #eae1f0;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 500;
+}
+.gamma-log strong {
+  font-weight: 500;
+  margin-left: auto;
+}
+.gamma-complete {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+  color: #9a80ae;
+}
+.gamma-complete h3 {
+  font-size: 15px;
+  font-weight: 500;
+  color: #7e6392;
+}
+.gamma-complete p {
+  font-size: 11px;
+  color: #a18aaf;
+  margin-top: 6px;
+}
+.gamma-complete .primary-button {
+  margin-left: auto;
+  background: #876a9e;
+  border-color: #876a9e;
+}
+.scroll-table {
+  width: 100%;
+  overflow-x: auto;
+  margin: 15px 0;
+}
+.scroll-table table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+  border: 1px solid #e3e8da;
+  border-radius: 6px;
+  font:
+    11px "DM Sans",
+    "Noto Sans SC",
+    sans-serif;
+  color: #798d68;
+}
+.scroll-table th {
+  text-align: left;
+  background: #f1f5e9;
+  padding: 11px;
+  font-size: 9px;
+  font-weight: 500;
+  color: #8a9e75;
+}
+.scroll-table td {
+  padding: 11px;
+  border-top: 1px solid #edf0e7;
+}
+.pnl-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 23px 0;
+}
+.pnl-breakdown span {
+  display: block;
+  font-size: 9px;
+  color: #91a47d;
+}
+.pnl-breakdown b {
+  display: block;
+  font:
+    17px "DM Sans",
+    sans-serif;
+  color: #6d8955;
+  margin-top: 8px;
+}
+.attribution {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.attribution > span {
+  font-size: 10px;
+  color: #91a47d;
+  background: #f2f6ea;
+  padding: 9px 11px;
+  border: 1px solid #e7eddd;
+  border-radius: 5px;
+}
+.attribution b {
+  display: block;
+  font:
+    15px "DM Sans",
+    sans-serif;
+  color: #78935e;
+  margin-top: 4px;
+}
+@media (max-width: 1200px) {
+  .gamma-layout {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+  .gamma-market {
+    padding: 17px;
+  }
+  .gamma-risk b {
+    font-size: 17px;
+  }
+  .gamma-market-values {
+    gap: 14px;
+  }
+  .gamma-market-values b {
+    font-size: 16px;
+  }
+  .course-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .course-intro {
+    grid-template-columns: 1fr;
+    padding: 23px;
+    gap: 25px;
+  }
+  .course-cards {
+    grid-template-columns: 1fr;
+  }
+  .course-steps {
+    gap: 13px;
+  }
+  .gamma-layout {
+    grid-template-columns: 1fr;
+  }
+  .gamma-account {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 25px;
+  }
+  .gamma-account > h2 {
+    grid-column: 1/-1;
+  }
+  .account-total {
+    border: 0;
+    padding: 5px 0;
+  }
+  .account-lines {
+    margin: 0;
+  }
+  .gamma-account > .muted {
+    grid-column: 1/-1;
+    margin: 0;
+  }
+  .gamma-risk span {
+    font-size: 8px;
+  }
+  .gamma-market-values b {
+    font-size: 19px;
+  }
+  .gamma-complete {
+    flex-wrap: wrap;
+  }
+  .gamma-complete .primary-button {
+    margin-left: auto;
+  }
+  .gamma-scenarios {
+    gap: 8px;
+  }
+  .gamma-scenarios button {
+    padding: 11px;
+  }
+  .gamma-scenarios button b {
+    font-size: 10px;
+  }
+  .gamma-brief {
+    flex-wrap: wrap;
+    padding: 15px;
+  }
+  .gamma-brief > .pill {
+    margin-left: 30px;
+  }
+  .hedge-actions {
+    gap: 9px;
+  }
+  .hedge-actions > button {
+    padding: 13px;
+  }
+  .hedge-actions b {
+    font-size: 11px;
+  }
+  .hedge-actions span {
+    font-size: 10px;
+  }
+  .gamma-next {
+    flex-wrap: wrap;
+  }
+  .gamma-next .primary-button {
+    margin-left: auto;
+  }
+  .pnl-breakdown {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .gamma-scenarios {
+    grid-template-columns: 1fr 1fr;
+  }
+  .gamma-layout {
+    gap: 14px;
+  }
+  .gamma-market {
+    padding: 15px 12px 0;
+  }
+  .gamma-market-values {
+    gap: 13px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+  }
+  .gamma-market-values b {
+    font-size: 17px;
+  }
+  .gamma-risk {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .gamma-risk b {
+    font-size: 21px;
+  }
+  .gamma-risk span {
+    font-size: 9px;
+  }
+  .gamma-account {
+    padding: 17px;
+    gap: 12px;
+  }
+  .account-total > b {
+    font-size: 25px;
+  }
+  .account-lines p {
+    font-size: 8px;
+    gap: 5px;
+  }
+  .hedge-actions {
+    grid-template-columns: 1fr;
+  }
+  .hedge-actions > button {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .hedge-actions b {
+    font-size: 12px;
+  }
+  .hedge-actions span {
+    margin: 0;
+    text-align: right;
+    font-size: 10px;
+  }
+  .hedge-actions small {
+    grid-column: 1/-1;
+    font-size: 9px;
+  }
+  .gamma-decisions {
+    padding: 17px 14px;
+  }
+  .gamma-decisions .panel-heading {
+    flex-wrap: wrap;
+  }
+  .gamma-log > button {
+    gap: 10px;
+    font-size: 9px;
+    padding: 8px;
+  }
+  .gamma-log > button > b {
+    width: 20px;
+    height: 20px;
+  }
+  .gamma-complete {
+    gap: 12px;
+  }
+  .gamma-complete h3 {
+    font-size: 13px;
+  }
+  .gamma-complete p {
+    font-size: 10px;
+  }
+  .gamma-complete .primary-button {
+    font-size: 10px;
+  }
+  .course-card {
+    padding: 22px;
+  }
+  .json-input {
+    font-size: 10px;
+  }
+  .import-preview li {
+    font-size: 11px;
+  }
+  .import-preview b {
+    margin-left: 24px;
+  }
+  .experiment-actions {
+    gap: 0;
+  }
+  .portfolio-bottom {
+    flex-wrap: wrap;
+  }
+  .portfolio-bottom > .outline-button {
+    font-size: 9px;
+    padding: 6px;
+  }
+  .chart-panel .segmented.small {
+    max-width: 100%;
+  }
+}
+.gamma-market-values,
+.gamma-next > span,
+.gamma-brief p,
+.gamma-account > .muted,
+.account-lines p,
+.hedge-actions small,
+.gamma-risk span,
+.gamma-log > button,
+.gamma-scenarios button small {
+  color: #796686;
+}
+.gamma-brief p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.gamma-risk span {
+  font-size: 9px;
+}
+.gamma-account > .muted {
+  font-size: 10px;
+}
+.hedge-actions span {
+  color: #856896;
+}
+.account-lines p {
+  font-size: 11px;
+}
+.gamma-scenarios button b {
+  font-size: 12px;
+}
+.course-card p {
+  font-size: 12px;
+}
+@media (max-width: 480px) {
+  .account-lines p {
+    font-size: 9px;
+  }
+  .gamma-brief p {
+    font-size: 10px;
+  }
+  .gamma-risk span {
+    font-size: 10px;
+  }
+  .gamma-scenarios button b {
+    font-size: 11px;
+  }
+  .course-card p {
+    font-size: 11px;
+  }
+}

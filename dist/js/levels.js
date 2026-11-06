@@ -169,9 +169,10 @@ export const SANDBOX = {
   maxUnits: 8,
   goals: [],
 };
-export const goalLabel = g =>
-  g.kind === "debit"
-    ? `初始净支出 ≤ $${g.limit.toFixed(2)}`
-    : g.kind === "loss"
-      ? `最大损失 ≤ $${g.limit.toFixed(2)}`
-      : `到期价 $${g.spot} 时，损益 ≥ ${g.limit < 0 ? "−" : ""}$${Math.abs(g.limit).toFixed(2)}`;
+export const goalLabel = g => {
+  const op = g.op === "lte" ? "≤" : "≥";
+  if (g.kind === "tailSlope") return `右端斜率 ${op} ${g.limit}`;
+  if (g.kind === "debit") return `初始净支出 ${op} $${g.limit.toFixed(2)}`;
+  if (g.kind === "loss") return `最大损失 ${op} $${g.limit.toFixed(2)}`;
+  return `到期价 $${g.spot} 时，${g.kind === "payoff" ? "支付" : "损益"} ${op} ${g.limit < 0 ? "−" : ""}$${Math.abs(g.limit).toFixed(2)}`;
+};

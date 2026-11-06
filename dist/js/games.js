@@ -14,7 +14,7 @@ export const GAMES = [
     id: "gamma",
     name: "波动率捕手",
     en: "GAMMA SURFER",
-    status: "planned",
+    status: "live",
     icon: "activity",
     tag: "动态对冲",
     description: "在时间、波动与对冲成本之间掌舵。",

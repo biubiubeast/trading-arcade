@@ -128,7 +128,11 @@ export function checkLevel(level, legs) {
         ? a.debit
         : g.kind === "loss"
           ? a.maxLoss
-          : pnl(legs, g.spot, 0, undefined, market);
+          : g.kind === "tailSlope"
+            ? a.tailSlope
+            : g.kind === "payoff"
+              ? pnl(legs, g.spot, 0, undefined, market) + a.debit
+              : pnl(legs, g.spot, 0, undefined, market);
     return {
       ...g,
       actual,

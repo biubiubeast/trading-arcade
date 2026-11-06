@@ -1,38 +1,43 @@
-# 技术架构 · v0.2.0
+# 技术架构 · 平台 v0.3.0
 
-原生 ES Modules + HTML/CSS/SVG，零第三方运行依赖、无构建步骤。dist 是直接部署的源码目录。开发环境 Node 22+，本次验证 Node 24。
+仍为原生 ES Modules、HTML/CSS/SVG、零第三方运行依赖，无构建步骤。dist 是直接部署源码。Node 22+ 用于本地服务、检查与归档，本次验证 Node 24。
+
+## 游戏外壳与生命周期
+
+core/shell.js 提供导航与页面外壳；core/navigation.js 管理游戏 mount/unmount。切换路由时先退出上一游戏。Gamma 控制器用 AbortController 绑定/解除事件，防止反复进入后重复成交。期权积木保留自己的交互模块；课程 UI 为独立内容控制器。gammas 只有真实可玩模块才在大厅标记 live。
+
+## 模块职责
 
 | 模块 | 职责 |
 |---|---|
-| engine.js | 定价、固定建仓成本、完整区间风险、合法性和判题；显式接受 market 参数 |
-| levels.js | 六个基础关与自由实验配置 |
-| learning.js | 三个迁移关、六个预测题、快照、分支与恢复纯函数 |
-| storage.js | payoff:v2 命名空间、v1 无损读取迁移、结构边界校验 |
-| ui.js | 图标、金额与工具名称展示 |
-| app.js | 页面外壳、当前市场绑定、DOM 事件、图表、问答/回放/对照 |
-| scripts/releases.mjs | 冻结版本文档与校验 SHA-256 清单 |
-| scripts/check.mjs | JS 语法和版本档案检查 |
+| engine.js | 共用 BS 定价、静态组合损益、解析风险、约束判题 |
+| levels.js / learning.js | 基础关、迁移题、预测与持仓快照 |
+| content.js | 封闭格式、参考解验证、有限枚举、分享编码、进度合并 |
+| course-presets.js / courses/starter.json | 可编辑的三题示例课程与下载模板 |
+| course-ui.js | 导入预览/确认、分享、模板导出、课程列表 |
+| core/comparison.js | 同题两条到期净损益曲线叠加 |
+| gamma/engine.js | 市场种子、Greeks、交易现金流、结算、重放、基准和归因 |
+| gamma/view.js | 独立游戏控制器、恢复、账本/复盘、观察历史与导出 |
+| scripts/check.mjs | 递归语法与冻结档案校验 |
 
-## 定价与判题
+## 两种经济语义分开
 
-`Leg={type,strike,qty}`，qty 为整数净数量，乘数 1。`Market={spot,days,vol,fee,multiplier}`。基础 MARKET 保留不变，迁移题独立覆盖参数。所有 quote/debit/pnl/analyze/checkLevel 必须使用该题 market；改变估值 IV 不能改变固定建仓成本。
+期权积木重新设计最终净持仓，费用按最终绝对单位数计算；撤销不是历史交易冲销。Gamma 每次成交都改变现金与标的仓位，每笔费用与半价差都入账。二者共享定价函数，不复用错误的费用语义。
 
-费用为最终净持仓的绝对单位数×fee。到期价值减净建仓成本得净损益。风险继续解析检查 S=0、执行价折点和无限远尾部，图表采样仅用于展示。未建立逐笔交易现金账本。
+Gamma 账户权益使用现金+标的价值+期权完整重估，近似 Greeks 仅解释变化。最后结算平仓后，分解净盈亏和现金余额必须一致。详见 GAMMA_MODEL。
 
-## 学习状态
+## 存储与导入
 
-`trade-arcade:payoff:v2`：completed、drafts、hintUse、predictions、sessions、comparisons、lastLevel、lastTransfer、lastMode。读取旧 `trade-arcade:v1` 但不删除；后续保存使用新键。预测存首次 choice，正确与否从当前题库重算。题库语义若变更，应使用新的稳定题目 ID。
+Payoff 继续使用 `trade-arcade:payoff:v2`，本次为向后兼容的附加字段（customCourse、lastCourse）；旧键仍保留。导出 envelope 版本为 3，不等同于内部存储版本。
 
-每个关卡一个 timeline：cursor + 至多 50 个深复制持仓快照。撤销/重做只移动游标，撤销后编辑截断旧未来。恢复时校验每步工具、数量和执行价，并检查游标快照与当前草稿一致；异常时从当前合法草稿重建。提示状态不属于可撤销持仓，避免撤销绕过星级规则。
+Gamma 独立使用 `trade-arcade:gamma:v1`，保存当前场景、种子、已推进步数和动作序列，以及最近 12 个已完成会话。恢复时重新生成路径并重放，不信任导入的现金或成绩；尚未推进的动作只执行一次。
 
-每题可保存一个对照，只能在本题规则下读取。回放是只读的持仓观察，不假装是交易成交或现金流水。开始新尝试清空当前回放，不提供所有历史尝试的长期分析。
+课程与组合分享数据经过封闭校验及文本转义。JSON 导入在预览阶段只生成候选状态，确认后才写入；不覆盖现有非空草稿、首次预测或其他游戏。学习效果与防作弊仍无服务器保证。
 
-## 下一个架构节点
+## 发布与版本
 
-本版不承诺完整插件系统。games.js 注册元数据，但新游戏仍需真实 renderer、独立引擎和进度模块。第二款游戏前抽取 app.js 的 shell、modal、chart、play view 及 mount/unmount 生命周期，采用每游戏独立命名空间。当前零依赖实现可继续验证产品；不为尚未确定的多人模式提前引入数据库。
+复用原 Sites 项目与 owner-private 访问范围。GitHub 独立私有仓库为 biubiubeast/trading-arcade。两种提交 SHA 可能不同，发布时比较 Git tree，保证源文件一致。冻结 docs/releases/v0.3.0 的产品、路线、验收与总结；部署及最终提交引用保存在发布收据，避免自引用哈希。
 
-## 发布与 GitHub
+## 下一步架构
 
-Sites 身份只在 `.openai/hosting.json` 管理，不创建重复 Site。GitHub 是独立私有源码与版本档案仓库，Sites 是部署镜像。两者可能有不同提交 SHA，但交付文件需相同；正式发布前校验源码内容，不用一次空提交假装新构建。
-
-部署流程复用 Sites 官方 source helper：同步 → 检查 → 提交推送 → 归档 → 保存并发布同一版本。短期凭据只在会话内经 stdin 传递，不写入源码或文档。仓库不包含上层目录的 .env、交易数据或其他项目文件。
+更多内容编辑器可建立在现有有限 schema 上；开放任意合约或公式之前重新设计执行边界。动态规则编辑先限制到可验证策略参数，再引入多路径评估。结构化产品工坊复用静态支付与约束层，但必须另建客户和发行方视角及融资规则，不把 Gamma 的多头训练账户直接改成发行方利润。

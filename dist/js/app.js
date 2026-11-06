@@ -17,15 +17,33 @@ import {
   restoreTimeline,
   predictionResult,
 } from "./learning.js";
+import { comparisonPlot } from "./core/comparison.js";
+import { shell as appShell } from "./core/shell.js";
+import { routeFromHash, createRouter } from "./core/navigation.js";
+import { createGammaGame } from "./gamma/view.js";
+import { createContentUI, runtimeCourse } from "./course-ui.js";
+import { normalizePack, portablePack, enumerate } from "./content.js";
 import { GAMES } from "./games.js";
 import { readProgress, saveProgress, validDraft } from "./storage.js";
 
 import { icon, money, signed, typeName, legName } from "./ui.js";
 const progress = readProgress();
-let route = location.hash.slice(1) || "play",
+let coursePack = null;
+try {
+  if (progress.customCourse) coursePack = normalizePack(progress.customCourse);
+} catch {}
+let courseLessons = coursePack ? runtimeCourse(coursePack) : [];
+let courseIndex = Math.min(
+  progress.lastCourse || 0,
+  Math.max(0, courseLessons.length - 1)
+);
+let route = routeFromHash(location.hash),
   levelIndex = progress.lastLevel,
   transferIndex = progress.lastTransfer,
-  mode = progress.lastMode,
+  mode =
+    progress.lastMode === "course" && !courseLessons.length
+      ? "challenge"
+      : progress.lastMode,
   legs = [],
   libraryType = "call",
   side = 1,
@@ -46,13 +64,21 @@ const current = () =>
     ? SANDBOX
     : mode === "transfer"
       ? TRANSFERS[transferIndex]
-      : LEVELS[levelIndex];
+      : mode === "course"
+        ? courseLessons[courseIndex]
+        : LEVELS[levelIndex];
 const market = () => current().market || MARKET;
 const quote = l => engineQuote(l, market());
 const pnl = (ls, spot, t = 0, v) => enginePnl(ls, spot, t, v, market());
 const analyze = ls => engineAnalyze(ls, market());
-const activeLevels = () => (mode === "transfer" ? TRANSFERS : LEVELS);
-const activeIndex = () => (mode === "transfer" ? transferIndex : levelIndex);
+const activeLevels = () =>
+  mode === "transfer" ? TRANSFERS : mode === "course" ? courseLessons : LEVELS;
+const activeIndex = () =>
+  mode === "transfer"
+    ? transferIndex
+    : mode === "course"
+      ? courseIndex
+      : levelIndex;
 const completed = () =>
   LEVELS.filter(l => progress.completed[l.id]?.stars > 0).length;
 const totalStars = () =>
@@ -64,6 +90,7 @@ function restore() {
   );
   vol = Math.round(market().vol * 100);
   scenario = market().spot + 10;
+  days = Math.min(15, market().days);
   if (!current().types.includes(libraryType)) libraryType = current().types[0];
   if (!current().sell) side = 1;
 }
@@ -74,6 +101,8 @@ function persist() {
   progress.lastLevel = levelIndex;
   progress.lastTransfer = transferIndex;
   progress.lastMode = mode;
+  progress.lastCourse = courseIndex;
+  progress.customCourse = coursePack ? portablePack(coursePack) : null;
   if (!saveProgress(progress) && !storageWarning) {
     storageWarning = true;
     toast("浏览器存储不可用，本次进度仅保留到页面关闭。");
@@ -93,23 +122,91 @@ function navTo(next) {
   } else location.hash = next;
 }
 window.addEventListener("hashchange", () => {
-  route = location.hash.slice(1) || "play";
+  route = routeFromHash(location.hash);
+  closeModal();
   render();
   window.scrollTo(0, 0);
+  if (route === "share") contentUI.previewShare(location.hash.slice(7));
 });
 
+const gammaGame = createGammaGame({ openModal, closeModal, toast });
+const gameRouter = createRouter(id =>
+  id === "gamma" ? gammaGame : { mount() {}, unmount() {} }
+);
+const contentUI = createContentUI({
+  progress,
+  builtins: [...LEVELS, ...TRANSFERS],
+  getCourse: () => coursePack,
+  getWorkspace: () => ({ level: current(), legs, market: market() }),
+  applyPack: (pack, sharedLegs) => {
+    persist();
+    coursePack = pack;
+    courseLessons = runtimeCourse(pack);
+    courseIndex = 0;
+    mode = "course";
+    restore();
+    if (sharedLegs) {
+      legs = sharedLegs;
+      timeline = newTimeline(legs);
+      hints[current().id] = 2;
+    }
+    persist();
+    navTo("play");
+  },
+  openCourse: i => {
+    persist();
+    mode = "course";
+    courseIndex = Math.max(0, Math.min(courseLessons.length - 1, i));
+    restore();
+    persist();
+    navTo("play");
+  },
+  applyProgress: next => {
+    Object.assign(progress, next);
+    hints = progress.hintUse;
+    restore();
+    persist();
+    render();
+    toast("学习记录已合并。");
+  },
+  openModal,
+  closeModal,
+  toast,
+});
 function shell() {
-  const active = ["play", "games", "learn", "roadmap", "progress"].includes(
-    route
-  )
-    ? route
-    : "play";
-  return `<aside class="sidebar"><a class="brand" href="#games" aria-label="交易游乐场 · 游戏大厅"><span class="brand-mark">${icon("blocks", 23)}</span><span>交易游乐场<small>TRADE ARCADE</small></span></a><div class="nav-caption">把知识，玩成直觉。</div><nav aria-label="主导航"><a href="#games" class="nav-item ${active === "games" ? "active" : ""}">${icon("grid")}游戏大厅</a><div class="nav-section">正在探索</div><a href="#play" class="nav-item ${active === "play" ? "active" : ""}">${icon("blocks")}期权积木<span class="nav-dot"></span></a><a href="#learn" class="nav-item ${active === "learn" ? "active" : ""}">${icon("book")}知识手册</a><a href="#progress" class="nav-item ${active === "progress" ? "active" : ""}">${icon("trophy")}我的进度<span class="nav-count">${completed()}/6</span></a><div class="nav-section">下一段旅程</div><div class="coming-item">${icon("activity")}波动率捕手<span>筹备中</span></div><div class="coming-item">${icon("search")}Alpha 侦探局<span>规划中</span></div><a href="#roadmap" class="nav-item ${active === "roadmap" ? "active" : ""}">${icon("map")}开发路线图${icon("chevron", 14)}</a></nav><div class="sidebar-bottom"><div class="mini-blocks"><i></i><i></i><i></i><i></i></div><h4>每一个组合，<br>都是一种思考。</h4><p>从一块积木开始，<br>理解收益背后的取舍。</p><span class="version">EARLY ACCESS <b>v0.2</b></span></div><div class="sidebar-foot"><span class="status-dot"></span> 本地保存学习进度</div></aside><div class="content"><header class="topbar"><div class="breadcrumbs">交易游乐场 ${icon("chevron", 13)} <span>${{ play: "期权积木", games: "游戏大厅", learn: "知识手册", roadmap: "开发路线图", progress: "我的进度" }[active]}</span></div><div class="top-actions"><button class="text-button" data-action="guide" aria-label="玩法指南">${icon("help", 17)}<span>玩法指南</span></button><span class="top-divider"></span><span class="avatar">N</span><span class="rank">${completed() === 6 ? "积木探索家" : "新手建造师"}</span></div></header><main id="main" tabindex="-1">${active === "play" ? playView() : active === "games" ? gamesView() : active === "learn" ? learnView() : active === "progress" ? progressView() : roadmapView()}</main><footer class="page-footer"><span>小步试错，大步理解。</span><span>教学模拟 · 合成价格 · 不连接真实交易</span></footer></div>`;
+  return appShell({
+    route,
+    completed: completed(),
+    main:
+      route === "gamma"
+        ? '<div id="game-root"></div>'
+        : route === "courses"
+          ? contentUI.view()
+          : route === "games"
+            ? gamesView()
+            : route === "learn"
+              ? learnView()
+              : route === "progress"
+                ? progressView()
+                : route === "roadmap"
+                  ? roadmapView()
+                  : playView(),
+  });
 }
 function render() {
+  document.title =
+    (route === "gamma"
+      ? "波动率捕手"
+      : route === "courses"
+        ? "课程工坊"
+        : "期权积木") + " · 交易游乐场";
   const active = document.activeElement;
   const key = active?.dataset?.action ? { ...active.dataset } : null;
   app.innerHTML = shell();
+  gameRouter.mount(
+    route === "gamma" ? "gamma" : "static",
+    document.querySelector("#game-root") || document.querySelector("#main")
+  );
   bindChart();
   if (key) {
     const candidate = [...app.querySelectorAll("[data-action]")].find(el =>
@@ -125,7 +222,7 @@ function learningBar() {
   const q = PREDICTIONS[current().id],
     r = progress.predictions[current().id],
     baseline = validDraft(progress.comparisons[current().id], current());
-  return `<section class="learning-toolbar" aria-label="学习与实验工具"><div class="learning-prompt">${icon(mode === "transfer" ? "target" : "bulb", 18)}<span>${mode === "transfer" ? "迁移挑战 · 无目标轮廓、无示范解" : q ? (r ? "已记录首次预测 · 理解与通关分别记录" : "先预测，再动手 · 把直觉放到实验里验证") : "自由构建 · 保存一个组合，再比较不同选择"}</span>${q ? `<button class="text-button" data-action="predict">${r ? "查看预测" : "回答预测"} ${icon("arrow", 14)}</button>` : ""}</div><div class="experiment-actions"><button data-action="undo" ${timeline.cursor === 0 ? "disabled" : ""}>撤销</button><button data-action="redo" ${timeline.cursor === timeline.steps.length - 1 ? "disabled" : ""}>重做</button><button data-action="replay">操作回放 <small>${timeline.steps.length - 1}</small></button><button data-action="pin" ${!legs.length ? "disabled" : ""}>保存对照</button><button data-action="compare" ${!baseline.length ? "disabled" : ""}>比较组合</button></div></section>`;
+  return `<section class="learning-toolbar" aria-label="学习与实验工具"><div class="learning-prompt">${icon(mode === "transfer" ? "target" : "bulb", 18)}<span>${mode === "transfer" ? "迁移挑战 · 无目标轮廓、无示范解" : q ? (r ? "已记录首次预测 · 理解与通关分别记录" : "先预测，再动手 · 把直觉放到实验里验证") : mode === "course" ? "课程任务 · 按当前市场与约束验收" : "自由构建 · 保存一个组合，再比较不同选择"}</span>${q ? `<button class="text-button" data-action="predict">${r ? "查看预测" : "回答预测"} ${icon("arrow", 14)}</button>` : ""}</div><div class="experiment-actions"><button data-action="undo" ${timeline.cursor === 0 ? "disabled" : ""}>撤销</button><button data-action="redo" ${timeline.cursor === timeline.steps.length - 1 ? "disabled" : ""}>重做</button><button data-action="replay">操作回放 <small>${timeline.steps.length - 1}</small></button><button data-action="pin" ${!legs.length ? "disabled" : ""}>保存对照</button><button data-action="compare" ${!baseline.length ? "disabled" : ""}>比较组合</button><button data-content="share" ${!legs.length ? "disabled" : ""}>分享组合</button><a class="text-button" href="#courses">课程工坊 ${icon("arrow", 13)}</a></div></section>`;
 }
 function predict() {
   const q = PREDICTIONS[current().id];
@@ -137,7 +234,7 @@ function predict() {
   }
   openModal(
     "先预测，再验证",
-    `<span class="eyebrow">CONCEPT CHECK · ${current().topic}</span><p class="modal-lead">${q.question}</p><div class="prediction-options">${q.choices.map((c, i) => `<button data-action="answer" data-index="${i}"><b>${String.fromCharCode(65 + i)}</b><span>${c}</span></button>`).join("")}</div><p class="muted">首次判断单独保存，不影响组合星级。答错也可以继续，用实际曲线检验你的理解。</p>`
+    `<span class="eyebrow">CONCEPT CHECK · ${escapeText(current().topic)}</span><p class="modal-lead">${q.question}</p><div class="prediction-options">${q.choices.map((c, i) => `<button data-action="answer" data-index="${i}"><b>${String.fromCharCode(65 + i)}</b><span>${c}</span></button>`).join("")}</div><p class="muted">首次判断单独保存，不影响组合星级。答错也可以继续，用实际曲线检验你的理解。</p>`
   );
 }
 function answerPrediction(index) {
@@ -187,7 +284,7 @@ function compare() {
     now = analyze(legs);
   openModal(
     "比较两种选择",
-    `<p class="modal-lead">在同一关、同一组建仓参数下比较，看看你改变了什么。</p><div class="comparison-legs"><div><b>已保存的对照</b><p>${saved.map(l => `${l.qty > 0 ? "+" : ""}${l.qty} ${legName(l)}`).join(" / ")}</p></div><div><b>当前组合</b><p>${legs.length ? legs.map(l => `${l.qty > 0 ? "+" : ""}${l.qty} ${legName(l)}`).join(" / ") : "空组合"}</p></div></div><div class="scenario-table"><div><span>指标</span><span>对照</span><span>当前</span></div>${[["初始净支出", old.debit, now.debit], ["最大收益", old.maxProfit, now.maxProfit], ["最大损失", old.maxLoss, now.maxLoss], ...[market().spot - 20, market().spot, market().spot + 20].map(s => [`S=${s} 损益`, pnl(saved, s), pnl(legs, s)])].map(([name, a, b]) => `<div><span>${name}</span><b>${money(a)}</b><b>${money(b)}</b></div>`).join("")}</div><div class="callout">${icon("bulb", 18)}<p>成本减少了吗？收益有没有封顶？不要只看一个价格情景。这里比较的是静态组合，不是实际交易流水。</p></div>`,
+    `<p class="modal-lead">在同一关、同一组建仓参数下比较，看看你改变了什么。</p>${comparisonPlot(saved, legs, market())}<div class="comparison-legs"><div><b>已保存的对照</b><p>${saved.map(l => `${l.qty > 0 ? "+" : ""}${l.qty} ${legName(l)}`).join(" / ")}</p></div><div><b>当前组合</b><p>${legs.length ? legs.map(l => `${l.qty > 0 ? "+" : ""}${l.qty} ${legName(l)}`).join(" / ") : "空组合"}</p></div></div><div class="scenario-table"><div><span>指标</span><span>对照</span><span>当前</span></div>${[["初始净支出", old.debit, now.debit], ["最大收益", old.maxProfit, now.maxProfit], ["最大损失", old.maxLoss, now.maxLoss], ...[market().spot - 20, market().spot, market().spot + 20].map(s => [`S=${s} 损益`, pnl(saved, s), pnl(legs, s)])].map(([name, a, b]) => `<div><span>${name}</span><b>${money(a)}</b><b>${money(b)}</b></div>`).join("")}</div><div class="callout">${icon("bulb", 18)}<p>成本减少了吗？收益有没有封顶？不要只看一个价格情景。这里比较的是静态组合，不是实际交易流水。</p></div>`,
     true
   );
 }
@@ -205,7 +302,7 @@ function playView() {
   const level = current();
   const a = analyze(legs);
   const result = mode !== "sandbox" ? checkLevel(level, legs) : null;
-  return `${pageHeading("GAME 01 / PAYOFF PUZZLE", `期权积木<span class="title-tag">${icon("blocks", 13)} 收益曲线解谜</span>`, "把交易观点变成一条曲线。拼一拼，理解每一份收益与风险。", `<button class="outline-button" data-action="guide">${icon("help", 16)}怎么玩</button>`)}<div class="workspace-bar"><div class="segmented mode-tabs"><button data-action="mode" data-mode="challenge" class="${mode === "challenge" ? "selected" : ""}">${icon("flag", 16)}关卡挑战</button><button data-action="mode" data-mode="sandbox" class="${mode === "sandbox" ? "selected" : ""}">${icon("spark", 16)}自由实验</button><button data-action="mode" data-mode="transfer" class="${mode === "transfer" ? "selected" : ""}">${icon("target", 16)}迁移挑战</button></div><span class="session-note">${icon("clock", 14)} ${mode !== "sandbox" ? "一关约 " + level.time : "没有标准答案，尽情试一试"}</span><button class="text-button reset-button" data-action="reset">${icon("reset", 15)}重置组合</button></div>${learningBar()}<div class="play-grid"><section class="mission panel">${missionView(level, result)}</section><section class="chart-panel panel"><div class="panel-heading"><div><h2>${icon("activity", 18)}${chartMode === "expiry" ? "到期损益曲线" : "到期前估值曲线"}</h2><p>看看你的组合，在不同价格下会发生什么。</p></div><div class="segmented small"><button data-action="chartmode" data-value="expiry" class="${chartMode === "expiry" ? "selected" : ""}">到期损益</button><button data-action="chartmode" data-value="mark" class="${chartMode === "mark" ? "selected" : ""}">到期前估值</button></div></div><div class="market-strip"><span>合成标的 <b>${money(market().spot)}</b></span><span>建仓期限 <b>${market().days} 天</b></span><span>建仓 IV <b>${Math.round(market().vol * 100)}%</b></span><span class="model-tag">欧式 · 乘数 1</span></div>${chartMode === "mark" ? `<div class="valuation-controls"><label>剩余 <b id="days-label">${days}</b> 天 <input aria-label="估值剩余天数" type="range" min="0" max="30" value="${days}" data-control="days"></label><label>估值 IV <b id="vol-label">${vol}%</b><input aria-label="估值隐含波动率" type="range" min="10" max="100" value="${vol}" data-control="vol"></label><span>建仓成本固定，仅重估持仓</span></div>` : ""}<div class="chart-wrap" id="chart-wrap">${chartSvg()}</div><div class="chart-legend"><span><i class="line green"></i>你的组合</span>${mode === "challenge" ? `<label><input type="checkbox" data-control="target" ${showTarget ? "checked" : ""}><i class="line dashed"></i>目标轮廓</label>` : ""}<span class="legend-right">横轴：标的价格 / 纵轴：美元损益</span></div><div class="metrics" id="metrics">${metricsView(a)}</div></section><section class="library panel"><div class="panel-heading compact"><h2>${icon("blocks", 18)}积木盒</h2><span class="tiny-label">点击添加 · 也可拖入</span></div><div class="type-tabs">${level.types.map(t => `<button data-action="type" data-type="${t}" class="${libraryType === t ? "active" : ""}">${{ call: "Call", put: "Put", stock: "现货", cash: "现金" }[t]}</button>`).join("")}</div><div class="side-selector"><button data-action="side" data-side="1" class="${side === 1 ? "buy-active" : ""}">+ 买入</button><button data-action="side" data-side="-1" class="${side === -1 ? "sell-active" : ""}" ${!level.sell ? 'disabled title="本关仅可买入"' : ""}>− 卖出</button></div><div class="tool-cards">${libraryCards(level)}</div><div class="library-note">${icon("info", 14)} 每单位建仓费 ${money(market().fee)}，已计入损益。</div></section><section class="portfolio panel" id="portfolio-drop"><div class="panel-heading compact"><h2>你的组合 <span class="count-badge">${units(legs)} / ${level.maxUnits}</span></h2><span class="tiny-label">${legs.length ? "改变数量，曲线即时更新" : "把想法放进来"}</span></div>${legs.length ? `<div class="legs-list">${legs.map((l, i) => `<div class="leg-row"><span class="leg-icon ${l.type}">${{ call: "C", put: "P", stock: "S", cash: "$" }[l.type]}</span><div class="leg-description"><b>${legName(l)}</b><span>${l.qty > 0 ? "买入" : "卖出"} · 单价 ${money(quote(l))}</span></div><div class="quantity"><button data-action="qty" data-index="${i}" data-change="-1" aria-label="减少 ${legName(l)} 数量">${icon("minus", 13)}</button><span>${Math.abs(l.qty)}</span><button data-action="qty" data-index="${i}" data-change="1" aria-label="增加 ${legName(l)} 数量">${icon("plus", 13)}</button></div><span class="leg-cost">${money(l.qty * quote(l))}</span><button class="icon-button remove" data-action="remove" data-index="${i}" aria-label="移除 ${legName(l)}">${icon("close", 16)}</button></div>`).join("")}</div>` : `<div class="empty-portfolio"><span class="empty-blocks">${icon("blocks", 30)}<i>+</i></span><div><h3>第一块积木，从这里开始</h3><p>从左侧选择一张卡片，点击 + 添加到组合。</p></div></div>`}<div class="scenario-box"><div class="scenario-heading"><label for="scenario-slider">${icon("target", 15)}如果${chartMode === "expiry" ? "到期" : "估值时"}标的价格是 <b id="scenario-price">$${scenario}</b></label><strong class="${pnl(legs, scenario, chartMode === "expiry" ? 0 : days, vol / 100) >= 0 ? "positive" : "negative"}" id="scenario-pnl">${signed(pnl(legs, scenario, chartMode === "expiry" ? 0 : days, vol / 100))}</strong></div><input id="scenario-slider" data-control="scenario" aria-label="情景标的价格" type="range" min="60" max="140" value="${scenario}"><div class="range-labels"><span>$60</span><span>$100</span><span>$140</span></div></div><div class="portfolio-bottom"><span>${icon("shield", 15)}${mode !== "sandbox" ? "先搭建，再验证你的想法" : "自由实验 · 最多 8 单位"}</span><button class="primary-button" data-action="${mode !== "sandbox" ? "submit" : "report"}" ${!legs.length ? "disabled" : ""}>${mode !== "sandbox" ? "检验组合" : "查看分析"}${icon("arrow", 17)}</button></div></section></div><div class="bottom-note">${icon("info", 15)}到期损益已经扣除初始成本与建仓费；到期前估值使用 Black–Scholes 模型。<button data-action="model">查看模型说明 ${icon("external", 12)}</button></div>`;
+  return `${pageHeading("GAME 01 / PAYOFF PUZZLE", `期权积木<span class="title-tag">${icon("blocks", 13)} 收益曲线解谜</span>`, "把交易观点变成一条曲线。拼一拼，理解每一份收益与风险。", `<button class="outline-button" data-action="guide">${icon("help", 16)}怎么玩</button>`)}<div class="workspace-bar"><div class="segmented mode-tabs"><button data-action="mode" data-mode="challenge" class="${mode === "challenge" ? "selected" : ""}">${icon("flag", 16)}关卡挑战</button><button data-action="mode" data-mode="sandbox" class="${mode === "sandbox" ? "selected" : ""}">${icon("spark", 16)}自由实验</button><button data-action="mode" data-mode="transfer" class="${mode === "transfer" ? "selected" : ""}">${icon("target", 16)}迁移挑战</button></div><span class="session-note">${icon("clock", 14)} ${mode !== "sandbox" ? "一关约 " + level.time : "没有标准答案，尽情试一试"}</span><button class="text-button reset-button" data-action="reset">${icon("reset", 15)}重置组合</button></div>${learningBar()}<div class="play-grid"><section class="mission panel">${missionView(level, result)}</section><section class="chart-panel panel"><div class="panel-heading"><div><h2>${icon("activity", 18)}${chartMode === "payoff" ? "到期支付曲线" : chartMode === "expiry" ? "到期损益曲线" : "到期前估值曲线"}</h2><p>看看你的组合，在不同价格下会发生什么。</p></div><div class="segmented small"><button data-action="chartmode" data-value="expiry" class="${chartMode === "expiry" ? "selected" : ""}">到期损益</button><button data-action="chartmode" data-value="mark" class="${chartMode === "mark" ? "selected" : ""}">到期前估值</button><button data-action="chartmode" data-value="payoff" class="${chartMode === "payoff" ? "selected" : ""}">到期支付</button></div></div><div class="market-strip"><span>合成标的 <b>${money(market().spot)}</b></span><span>建仓期限 <b>${market().days} 天</b></span><span>建仓 IV <b>${Math.round(market().vol * 100)}%</b></span><span class="model-tag">欧式 · 乘数 1</span></div>${chartMode === "mark" ? `<div class="valuation-controls"><label>剩余 <b id="days-label">${days}</b> 天 <input aria-label="估值剩余天数" type="range" min="0" max="${market().days}" value="${days}" data-control="days"></label><label>估值 IV <b id="vol-label">${vol}%</b><input aria-label="估值隐含波动率" type="range" min="10" max="100" value="${vol}" data-control="vol"></label><span>建仓成本固定，仅重估持仓</span></div>` : ""}<div class="chart-wrap" id="chart-wrap">${chartSvg()}</div><div class="chart-legend"><span><i class="line green"></i>你的组合</span>${mode === "challenge" ? `<label><input type="checkbox" data-control="target" ${showTarget ? "checked" : ""}><i class="line dashed"></i>目标轮廓</label>` : ""}<span class="legend-right">横轴：标的价格 / 纵轴：美元${chartMode === "payoff" ? "支付" : "损益"}</span></div><div class="metrics" id="metrics">${metricsView(a)}</div></section><section class="library panel"><div class="panel-heading compact"><h2>${icon("blocks", 18)}积木盒</h2><span class="tiny-label">点击添加 · 也可拖入</span></div><div class="type-tabs">${level.types.map(t => `<button data-action="type" data-type="${t}" class="${libraryType === t ? "active" : ""}">${{ call: "Call", put: "Put", stock: "现货", cash: "现金" }[t]}</button>`).join("")}</div><div class="side-selector"><button data-action="side" data-side="1" class="${side === 1 ? "buy-active" : ""}">+ 买入</button><button data-action="side" data-side="-1" class="${side === -1 ? "sell-active" : ""}" ${!level.sell ? 'disabled title="本关仅可买入"' : ""}>− 卖出</button></div><div class="tool-cards">${libraryCards(level)}</div><div class="library-note">${icon("info", 14)} 每单位建仓费 ${money(market().fee)}，已计入损益。</div></section><section class="portfolio panel" id="portfolio-drop"><div class="panel-heading compact"><h2>你的组合 <span class="count-badge">${units(legs)} / ${level.maxUnits}</span></h2><span class="tiny-label">${legs.length ? "改变数量，曲线即时更新" : "把想法放进来"}</span></div>${legs.length ? `<div class="legs-list">${legs.map((l, i) => `<div class="leg-row"><span class="leg-icon ${l.type}">${{ call: "C", put: "P", stock: "S", cash: "$" }[l.type]}</span><div class="leg-description"><b>${legName(l)}</b><span>${l.qty > 0 ? "买入" : "卖出"} · 单价 ${money(quote(l))}</span></div><div class="quantity"><button data-action="qty" data-index="${i}" data-change="-1" aria-label="减少 ${legName(l)} 数量">${icon("minus", 13)}</button><span>${Math.abs(l.qty)}</span><button data-action="qty" data-index="${i}" data-change="1" aria-label="增加 ${legName(l)} 数量">${icon("plus", 13)}</button></div><span class="leg-cost">${money(l.qty * quote(l))}</span><button class="icon-button remove" data-action="remove" data-index="${i}" aria-label="移除 ${legName(l)}">${icon("close", 16)}</button></div>`).join("")}</div>` : `<div class="empty-portfolio"><span class="empty-blocks">${icon("blocks", 30)}<i>+</i></span><div><h3>第一块积木，从这里开始</h3><p>从左侧选择一张卡片，点击 + 添加到组合。</p></div></div>`}<div class="scenario-box"><div class="scenario-heading"><label for="scenario-slider">${icon("target", 15)}如果${chartMode !== "mark" ? "到期" : "估值时"}标的价格是 <b id="scenario-price">$${scenario}</b></label><strong class="${pnl(legs, scenario, chartMode !== "mark" ? 0 : days, vol / 100) >= 0 ? "positive" : "negative"}" id="scenario-pnl">${signed(pnl(legs, scenario, chartMode !== "mark" ? 0 : days, vol / 100))}</strong></div><input id="scenario-slider" data-control="scenario" aria-label="情景标的价格" type="range" min="${Math.floor(market().spot * 0.6)}" max="${Math.ceil(market().spot * 1.4)}" value="${scenario}"><div class="range-labels"><span>${money(market().spot * 0.6)}</span><span>${money(market().spot)}</span><span>${money(market().spot * 1.4)}</span></div></div><div class="portfolio-bottom">${current().infeasible ? '<button class="outline-button" data-action="impossible">判断条件无解</button>' : ""}<span>${icon("shield", 15)}${mode !== "sandbox" ? "先搭建，再验证你的想法" : "自由实验 · 最多 8 单位"}</span><button class="primary-button" data-action="${mode !== "sandbox" ? "submit" : "report"}" ${!legs.length ? "disabled" : ""}>${mode !== "sandbox" ? "检验组合" : "查看分析"}${icon("arrow", 17)}</button></div></section></div><div class="bottom-note">${icon("info", 15)}到期支付不扣成本；到期损益已扣初始成本与建仓费。到期前估值使用 Black–Scholes 模型。<button data-action="model">查看模型说明 ${icon("external", 12)}</button></div>`;
 }
 function missionView(l, result) {
   if (mode === "sandbox")
@@ -213,11 +310,11 @@ function missionView(l, result) {
   return `<div class="mission-label"><span>CHALLENGE ${String(activeIndex() + 1).padStart(2, "0")}</span><span class="difficulty">${l.difficulty}</span></div><div class="level-steps" aria-label="选择关卡">${activeLevels()
     .map(
       (v, i) =>
-        `<button data-action="level" data-index="${i}" class="${i === activeIndex() ? "current" : progress.completed[v.id] ? "done" : ""}" aria-label="第 ${i + 1} 关：${v.title}" ${i === activeIndex() ? 'aria-current="step"' : ""}>${progress.completed[v.id] ? icon("check", 12) : i + 1}</button>`
+        `<button data-action="level" data-index="${i}" class="${i === activeIndex() ? "current" : progress.completed[v.id] ? "done" : ""}" aria-label="第 ${i + 1} 关：${escapeText(v.title)}" ${i === activeIndex() ? 'aria-current="step"' : ""}>${progress.completed[v.id] ? icon("check", 12) : i + 1}</button>`
     )
     .join(
       ""
-    )}</div><h2>${l.title}</h2><span class="topic-label">${l.topic}</span><p class="mission-brief">${l.brief}</p><div class="objective-title">${icon("target", 15)}你的任务<span>${result.checks.filter(c => c.pass).length}/${l.goals.length}</span></div><ul class="objectives">${result.checks.map(g => `<li class="${g.pass ? "passed" : ""}"><span class="check-circle">${g.pass ? icon("check", 11) : ""}</span><span>${goalLabel(g)}</span></li>`).join("")}</ul><div class="mission-footer"><span class="pill">最多 ${l.maxUnits} 单位</span><span class="pill">${l.sell ? "可买入 / 卖出" : "仅可买入"}</span></div><button class="hint-button" data-action="hint">${icon("bulb", 17)}需要一点灵感？${icon("chevron", 15)}</button>`;
+    )}</div><h2>${escapeText(l.title)}</h2><span class="topic-label">${escapeText(l.topic)}</span><p class="mission-brief">${escapeText(l.brief)}</p><div class="objective-title">${icon("target", 15)}你的任务<span>${result.checks.filter(c => c.pass).length}/${l.goals.length}</span></div><ul class="objectives">${result.checks.map(g => `<li class="${g.pass ? "passed" : ""}"><span class="check-circle">${g.pass ? icon("check", 11) : ""}</span><span>${goalLabel(g)}</span></li>`).join("")}</ul><div class="mission-footer"><span class="pill">最多 ${l.maxUnits} 单位</span><span class="pill">${l.sell ? "可买入 / 卖出" : "仅可买入"}</span></div><button class="hint-button" data-action="hint">${icon("bulb", 17)}需要一点灵感？${icon("chevron", 15)}</button>`;
 }
 function libraryCards(l) {
   const strikes = ["stock", "cash"].includes(libraryType) ? [0] : l.strikes;
@@ -239,16 +336,17 @@ function chartSvg() {
     R = 22,
     T = 23,
     B = 31,
-    range = [60, 140],
-    expiry = chartMode === "expiry";
+    range = [market().spot * 0.6, market().spot * 1.4],
+    expiry = chartMode !== "mark";
+  const chartValue = (ls, s) =>
+    pnl(ls, s, expiry ? 0 : days, vol / 100) +
+    (chartMode === "payoff" ? analyze(ls).debit : 0);
   const pts = Array.from({ length: 161 }, (_, i) => {
-    const s = 60 + i / 2;
-    return [s, pnl(legs, s, expiry ? 0 : days, vol / 100)];
+    const s = range[0] + ((range[1] - range[0]) * i) / 160;
+    return [s, chartValue(legs, s)];
   });
   const target = mode === "challenge" && showTarget ? current().solution : [];
-  const tp = target.length
-    ? pts.map(([s]) => [s, pnl(target, s, expiry ? 0 : days, vol / 100)])
-    : [];
+  const tp = target.length ? pts.map(([s]) => [s, chartValue(target, s)]) : [];
   const ys = [-6, 10, ...pts.map(p => p[1]), ...tp.map(p => p[1])];
   let min = Math.min(...ys),
     max = Math.max(...ys);
@@ -265,12 +363,22 @@ function chartSvg() {
       .join(" ");
   const zero = y(0),
     bottom = h - B;
-  const area = path(pts) + ` L${x(140)},${zero} L${x(60)},${zero} Z`;
+  const area = path(pts) + ` L${x(range[1])},${zero} L${x(range[0])},${zero} Z`;
   const ticks = Array.from(
     { length: 5 },
     (_, i) => min + ((max - min) * i) / 4
   );
-  return `<svg id="payoff-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${expiry ? "到期损益" : "到期前估值"}曲线，标的价格 60 至 140 美元"><defs><linearGradient id="profit-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#a8d9af" stop-opacity=".48"/><stop offset="100%" stop-color="#a8d9af" stop-opacity=".04"/></linearGradient><linearGradient id="loss-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#eeb6a7" stop-opacity=".08"/><stop offset="100%" stop-color="#eeb6a7" stop-opacity=".32"/></linearGradient><clipPath id="profit-clip"><rect x="${L}" y="${T}" width="${w - L - R}" height="${Math.max(0, zero - T)}"/></clipPath><clipPath id="loss-clip"><rect x="${L}" y="${zero}" width="${w - L - R}" height="${bottom - zero}"/></clipPath></defs>${ticks.map(v => `<line x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e8ece6" stroke-dasharray="3 5"/><text x="${L - 12}" y="${y(v) + 4}" text-anchor="end" fill="#8b948e" font-size="10">${v.toFixed(0)}</text>`).join("")}${[60, 80, 100, 120, 140].map(s => `<text x="${x(s)}" y="${h - 9}" text-anchor="middle" fill="#8b948e" font-size="10">$${s}</text>`).join("")}<line x1="${L}" x2="${w - R}" y1="${zero}" y2="${zero}" stroke="#b9c4b8"/><line x1="${x(market().spot)}" x2="${x(market().spot)}" y1="${T}" y2="${bottom}" stroke="#c8d0c7" stroke-dasharray="3 4"/><text x="${x(market().spot)}" y="14" text-anchor="middle" fill="#8b948e" font-size="10">建仓价 $${market().spot}</text><path d="${area}" fill="url(#profit-fill)" clip-path="url(#profit-clip)"/><path d="${area}" fill="url(#loss-fill)" clip-path="url(#loss-clip)"/>${tp.length ? `<path d="${path(tp)}" fill="none" stroke="#bdc8b9" stroke-width="2" stroke-dasharray="5 6"/>` : ""}<path d="${path(pts)}" fill="none" stroke="#3e8063" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>${!legs.length ? `<g><rect x="262" y="83" width="276" height="45" rx="9" fill="#fff" stroke="#e5e9e0"/><text x="400" y="110" fill="#798578" font-size="13" text-anchor="middle">添加第一块积木，看看曲线如何改变</text></g>` : ""}<line x1="${x(scenario)}" x2="${x(scenario)}" y1="${T}" y2="${bottom}" stroke="#4c8066" stroke-dasharray="2 4" opacity=".45"/><circle cx="${x(scenario)}" cy="${y(pnl(legs, scenario, expiry ? 0 : days, vol / 100))}" r="4.5" fill="#3e8063" stroke="white" stroke-width="2"/><rect data-chart-hit="true" x="${L}" y="${T}" width="${w - L - R}" height="${bottom - T}" fill="transparent"/></svg><div id="chart-tooltip" class="chart-tooltip" hidden></div>`;
+  return `<svg id="payoff-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${chartMode === "payoff" ? "到期支付" : expiry ? "到期损益" : "到期前估值"}曲线，标的价格 ${range[0].toFixed(0)} 至 ${range[1].toFixed(0)} 美元"><defs><linearGradient id="profit-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#a8d9af" stop-opacity=".48"/><stop offset="100%" stop-color="#a8d9af" stop-opacity=".04"/></linearGradient><linearGradient id="loss-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#eeb6a7" stop-opacity=".08"/><stop offset="100%" stop-color="#eeb6a7" stop-opacity=".32"/></linearGradient><clipPath id="profit-clip"><rect x="${L}" y="${T}" width="${w - L - R}" height="${Math.max(0, zero - T)}"/></clipPath><clipPath id="loss-clip"><rect x="${L}" y="${zero}" width="${w - L - R}" height="${bottom - zero}"/></clipPath></defs>${ticks.map(v => `<line x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e8ece6" stroke-dasharray="3 5"/><text x="${L - 12}" y="${y(v) + 4}" text-anchor="end" fill="#8b948e" font-size="10">${v.toFixed(0)}</text>`).join("")}${Array.from(
+    { length: 5 },
+    (_, i) => range[0] + ((range[1] - range[0]) * i) / 4
+  )
+    .map(
+      s =>
+        `<text x="${x(s)}" y="${h - 9}" text-anchor="middle" fill="#8b948e" font-size="10">$${s.toFixed(0)}</text>`
+    )
+    .join(
+      ""
+    )}<line x1="${L}" x2="${w - R}" y1="${zero}" y2="${zero}" stroke="#b9c4b8"/><line x1="${x(market().spot)}" x2="${x(market().spot)}" y1="${T}" y2="${bottom}" stroke="#c8d0c7" stroke-dasharray="3 4"/><text x="${x(market().spot)}" y="14" text-anchor="middle" fill="#8b948e" font-size="10">建仓价 $${market().spot}</text><path d="${area}" fill="url(#profit-fill)" clip-path="url(#profit-clip)"/><path d="${area}" fill="url(#loss-fill)" clip-path="url(#loss-clip)"/>${tp.length ? `<path d="${path(tp)}" fill="none" stroke="#bdc8b9" stroke-width="2" stroke-dasharray="5 6"/>` : ""}<path d="${path(pts)}" fill="none" stroke="#3e8063" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>${!legs.length ? `<g><rect x="262" y="83" width="276" height="45" rx="9" fill="#fff" stroke="#e5e9e0"/><text x="400" y="110" fill="#798578" font-size="13" text-anchor="middle">添加第一块积木，看看曲线如何改变</text></g>` : ""}<line x1="${x(scenario)}" x2="${x(scenario)}" y1="${T}" y2="${bottom}" stroke="#4c8066" stroke-dasharray="2 4" opacity=".45"/><circle cx="${x(scenario)}" cy="${y(chartValue(legs, scenario))}" r="4.5" fill="#3e8063" stroke="white" stroke-width="2"/><rect data-chart-hit="true" x="${L}" y="${T}" width="${w - L - R}" height="${bottom - T}" fill="transparent"/></svg><div id="chart-tooltip" class="chart-tooltip" hidden></div>`;
 }
 function bindChart() {
   const svg = document.querySelector("#payoff-chart");
@@ -278,11 +386,19 @@ function bindChart() {
   svg.addEventListener("pointermove", e => {
     const r = svg.getBoundingClientRect(),
       px = ((e.clientX - r.left) / r.width) * 800,
-      s = Math.max(60, Math.min(140, 60 + ((px - 54) / 724) * 80));
-    const v = pnl(legs, s, chartMode === "expiry" ? 0 : days, vol / 100);
+      s = Math.max(
+        market().spot * 0.6,
+        Math.min(
+          market().spot * 1.4,
+          market().spot * 0.6 + ((px - 54) / 724) * market().spot * 0.8
+        )
+      );
+    const v =
+      pnl(legs, s, chartMode !== "mark" ? 0 : days, vol / 100) +
+      (chartMode === "payoff" ? analyze(legs).debit : 0);
     const tt = document.querySelector("#chart-tooltip");
     tt.hidden = false;
-    tt.textContent = `标的 $${s.toFixed(2)} · 损益 ${signed(v)}`;
+    tt.textContent = `标的 $${s.toFixed(2)} · ${chartMode === "payoff" ? "支付" : "损益"} ${signed(v)}`;
     tt.style.left =
       Math.max(0, Math.min(r.width - 205, e.clientX - r.left - 80)) + "px";
     tt.style.top = "25px";
@@ -342,74 +458,70 @@ function progressView() {
   return `${pageHeading("YOUR JOURNEY", "每一次尝试，都算数。", "学习进度保存在当前浏览器。完成关卡后，继续探索新的组合。", `<button class="outline-button" data-action="export">${icon("download", 16)}导出学习记录</button>`)}<div class="progress-stats"><div><span>基础关卡完成</span><strong>${completed()}<small> / 6</small></strong></div><div><span>基础关星星</span><strong>${totalStars()}<small> / 18</small></strong></div><div><span>探索阶段</span><strong class="stage-name">${completed() === 6 ? "积木探索家" : completed() > 2 ? "策略探索者" : "新手建造师"}</strong></div></div><div class="journey-list">${[
     ...LEVELS,
     ...TRANSFERS,
+    ...courseLessons,
   ]
     .map((l, i) => {
       const p = progress.completed[l.id];
-      return `<article class="journey-row"><span class="journey-number ${p ? "finished" : ""}">${p ? icon("check", 22) : String(i + 1).padStart(2, "0")}</span><div><span class="tiny-label">${l.topic}</span><h3>${l.title}</h3><p>${l.concept}</p></div><span class="stars">${p ? "★".repeat(p.stars) + "☆".repeat(3 - p.stars) : "☆☆☆"}</span><button class="outline-button" data-action="${i < 6 ? "openlevel" : "opentransfer"}" data-index="${i < 6 ? i : i - 6}">${p ? "再次挑战" : "开始挑战"}${icon("arrow", 16)}</button></article>`;
+      return `<article class="journey-row"><span class="journey-number ${p ? "finished" : ""}">${p ? icon("check", 22) : String(i + 1).padStart(2, "0")}</span><div><span class="tiny-label">${escapeText(l.topic)}</span><h3>${escapeText(l.title)}</h3><p>${l.concept}</p></div><span class="stars">${p ? "★".repeat(p.stars) + "☆".repeat(3 - p.stars) : "☆☆☆"}</span><button class="outline-button" data-action="${i < 6 ? "openlevel" : i < 9 ? "opentransfer" : "opencourse"}" data-index="${i < 6 ? i : i < 9 ? i - 6 : i - 9}">${p ? "再次挑战" : "开始挑战"}${icon("arrow", 16)}</button></article>`;
     })
     .join(
       ""
     )}</div>${predictionProgress()}<p class="muted">星级规则：独立完成 3 星，查看提示后完成 2 星，载入示范后完成 1 星。重复挑战取历史最高星级。</p>`;
 }
 function roadmapView() {
-  return `${pageHeading("BUILD IN THE OPEN", "从一块积木，<br>走向一座交易游乐场。", "先验证学习闭环，再逐层增加交易机制。以下为产品计划，不代表已上线功能。")}<div class="roadmap-intro"><span class="status-dot"></span>当前版本 v0.2 · 先预测，再验证<span>单人 / 浏览器 / 教学模拟</span></div><div class="roadmap-grid">${[
+  const phases = [
     {
       n: "01",
-      status: "本版已实现",
-      title: "建立收益结构直觉",
+      status: "已上线 · Payoff v0.3",
+      title: "把结构变成可共享的任务",
       text: "期权积木",
       items: [
-        "六个递进关卡与完整风险检查",
-        "到期曲线 / 到期前估值切换",
-        "自由实验、情景观察与逐条复盘",
-        "本地进度保存与学习记录导出",
+        "课程包校验、模板与导入预览",
+        "到期支付 / 到期损益 / 提前估值",
+        "现金腿复制与有限枚举无解证明",
+        "组合分享、重新判题、对照叠加",
       ],
       cls: "current",
     },
     {
       n: "02",
-      status: "本版已实现",
-      title: "让学习效果可观察",
-      text: "期权积木 v0.2",
+      status: "已上线 · Gamma v0.1",
+      title: "沿时间管理一份风险",
+      text: "波动率捕手",
       items: [
-        "先预测、后操作的概念问答",
-        "更多执行价与交易成本挑战",
-        "操作回放与同题策略比较",
-        "独立记录概念问答与迁移题进度",
+        "六个短场景与逐回合对冲",
+        "现金账本、结算、三种基准",
+        "Greeks 近似归因与残差",
+        "种子复现、暂停恢复与本局导出",
       ],
+      cls: "current",
     },
     {
       n: "03",
-      status: "v0.4 · 第二款游戏",
-      title: "把静态风险放进时间",
-      text: "波动率捕手",
+      status: "下一版 · 先验证再扩展",
+      title: "让反馈更准确，规则更可迁移",
+      text: "v0.3.1 / Gamma v0.2",
       items: [
-        "可复现的价格路径与动态对冲",
-        "Delta / Gamma / Theta 风险观察",
-        "交易费用、IV 变化与跳跃场景",
-        "现金账本、基准策略与决策复盘",
+        "5–8 位学习者观察与交互修正",
+        "更多预测节点与事后解释问题",
+        "自定义对冲阈值与成本实验",
+        "多条未见路径的风险 / 成本对照",
       ],
     },
     {
       n: "04",
-      status: "长期探索",
-      title: "从交易到研究",
-      text: "做市与量化游戏",
+      status: "后续产品方向",
+      title: "把需求和模型接起来",
+      text: "结构化产品工坊与新游戏",
       items: [
-        "QuoteCraft：报价、库存与逆向选择",
-        "Alpha 侦探局：泄漏、过拟合与样本外",
-        "统一成就与学习能力地图",
-        "课程编辑、团队训练与教学分析",
+        "先做三种模板和明确预算约束",
+        "区分客户支付与发行方对冲账本",
+        "QuoteCraft：库存与逆向选择",
+        "Alpha 侦探局：泄漏与样本外证据",
       ],
     },
-  ]
-    .map(
-      p =>
-        `<article class="roadmap-card ${p.cls || ""}"><span class="roadmap-number">${p.n}</span><span class="pill">${p.status}</span><h2>${p.title}</h2><p>${p.text}</p><ul>${p.items.map(s => `<li>${icon("check", 14)}${s}</li>`).join("")}</ul></article>`
-    )
-    .join(
-      ""
-    )}</div><section class="panel explain-panel"><h2>每一款游戏，都完成一个学习闭环</h2><p class="muted">下一步 v0.3：经过校验的关卡配置、组合分享与导入、课程任务包；先做 5–8 位学习者验证，再拓展动态游戏。</p><div class="learning-loop"><span>理解任务</span>${icon("arrow", 18)}<span>作出选择</span>${icon("arrow", 18)}<span>观察结果</span>${icon("arrow", 18)}<span>解释取舍</span>${icon("arrow", 18)}<span>换个方法再试</span></div><p class="muted">优先用可复现的模型与明确规则核算结果。未来的 AI 教练基于已核算记录解释行为，评分、定价与记账由程序完成。</p></section>`;
+  ];
+  return `${pageHeading("BUILD IN THE OPEN", "从一条曲线，<br>走向一段风险路径。", "本版按你的要求将波动率捕手提前实现。结构化产品工坊仍是后续方向。")}<div class="roadmap-intro"><span class="status-dot"></span>期权积木 v0.3 + 波动率捕手 v0.1<span>单人 / 浏览器 / 教学模拟</span></div><div class="roadmap-grid">${phases.map(p => `<article class="roadmap-card ${p.cls || ""}"><span class="roadmap-number">${p.n}</span><span class="pill">${p.status}</span><h2>${p.title}</h2><p>${p.text}</p><ul>${p.items.map(s => `<li>${icon("check", 14)}${s}</li>`).join("")}</ul></article>`).join("")}</div><section class="panel explain-panel"><h2>先问是否理解，再看是否盈利。</h2><p class="muted">期权积木观察预测、任务约束和迁移；波动率捕手分别呈现风险区间、交易成本和最终盈亏。当前没有正式用户研究、专业能力认证或服务端排行榜。</p><div class="learning-loop"><span>读懂条件</span>${icon("arrow", 18)}<span>作出预测</span>${icon("arrow", 18)}<span>操作与核算</span>${icon("arrow", 18)}<span>解释取舍</span>${icon("arrow", 18)}<span>换条件重试</span></div></section>`;
 }
 
 function openModal(title, body, wide = false) {
@@ -442,7 +554,7 @@ function hint() {
   persist();
   openModal(
     "给你一点灵感",
-    `<div class="hint-hero">${icon("bulb", 30)}</div><p class="modal-lead">${current().hint}</p><p class="muted">查看提示后，本次完成最多获得 2 星。你仍可以自行调整和验证组合。</p><div class="modal-actions">${mode === "challenge" ? '<button class="outline-button" data-action="solution">载入示范组合</button>' : '<span class="muted">迁移挑战不提供示范。</span>'}<button class="primary-button" data-action="close">我再试试 ${icon("arrow", 16)}</button></div>`
+    `<div class="hint-hero">${icon("bulb", 30)}</div><p class="modal-lead">${escapeText(current().hint)}</p><p class="muted">查看提示后，本次完成最多获得 2 星。你仍可以自行调整和验证组合。</p><div class="modal-actions">${mode === "challenge" ? '<button class="outline-button" data-action="solution">载入示范组合</button>' : '<span class="muted">迁移挑战不提供示范。</span>'}<button class="primary-button" data-action="close">我再试试 ${icon("arrow", 16)}</button></div>`
   );
 }
 function scenarioPoints() {
@@ -483,14 +595,14 @@ function report() {
         ? "拼得漂亮，任务完成！"
         : "再调整一下，就更接近了。"
       : "你的组合分析",
-    `<div class="result-banner ${r?.pass ? "success" : ""}"><span>${icon(r?.pass ? "trophy" : "activity", 30)}</span><div><b>${r ? (r.pass ? `第 ${activeIndex() + 1} 关 · ${level.topic}` : "看看哪些条件还没有满足") : "每一条曲线，都表达了一种取舍"}</b><p>${r?.pass ? `本次获得 ${"★".repeat(stars)}${"☆".repeat(3 - stars)} · 历史最佳 ${progress.completed[level.id].stars} 星` : r ? "所有任务条件都通过后，即可完成本关。" : "最大风险覆盖完整价格区间，情景价格仅用于观察。"}</p></div></div>${r ? `<ul class="result-checks">${r.checks.map(c => `<li><span class="${c.pass ? "positive" : "negative"}">${icon(c.pass ? "check" : "close", 16)}</span><span>${goalLabel(c)}</span><b>${money(c.actual)}</b></li>`).join("")}</ul>` : `<div class="report-summary"><span>最大收益 <b>${money(a.maxProfit)}</b></span><span>最大损失 <b>${money(a.maxLoss)}</b></span><span>建仓 Delta <b>${((pnl(legs, market().spot + 0.001, market().days, market().vol) - pnl(legs, market().spot - 0.001, market().days, market().vol)) / 0.002).toFixed(3)}</b></span></div>`}<h3>把组合放进关键到期情景</h3><div class="scenario-table"><div><span>标的价格</span><span>组合到期价值</span><span>净损益（扣费）</span></div>${scenarioPoints()
+    `<div class="result-banner ${r?.pass ? "success" : ""}"><span>${icon(r?.pass ? "trophy" : "activity", 30)}</span><div><b>${r ? (r.pass ? `第 ${activeIndex() + 1} 关 · ${escapeText(level.topic)}` : "看看哪些条件还没有满足") : "每一条曲线，都表达了一种取舍"}</b><p>${r?.pass ? `本次获得 ${"★".repeat(stars)}${"☆".repeat(3 - stars)} · 历史最佳 ${progress.completed[level.id].stars} 星` : r ? "所有任务条件都通过后，即可完成本关。" : "最大风险覆盖完整价格区间，情景价格仅用于观察。"}</p></div></div>${r ? `<ul class="result-checks">${r.checks.map(c => `<li><span class="${c.pass ? "positive" : "negative"}">${icon(c.pass ? "check" : "close", 16)}</span><span>${goalLabel(c)}</span><b>${c.kind === "tailSlope" ? c.actual.toFixed(2) : money(c.actual)}</b></li>`).join("")}</ul>` : `<div class="report-summary"><span>最大收益 <b>${money(a.maxProfit)}</b></span><span>最大损失 <b>${money(a.maxLoss)}</b></span><span>建仓 Delta <b>${((pnl(legs, market().spot + 0.001, market().days, market().vol) - pnl(legs, market().spot - 0.001, market().days, market().vol)) / 0.002).toFixed(3)}</b></span></div>`}<h3>把组合放进关键到期情景</h3><div class="scenario-table"><div><span>标的价格</span><span>组合到期价值</span><span>净损益（扣费）</span></div>${scenarioPoints()
       .map(
         s =>
           `<div><b>$${s}</b><span>${money(pnl(legs, s) + a.debit)}</span><b class="${pnl(legs, s) >= 0 ? "positive" : "negative"}">${signed(pnl(legs, s))}</b></div>`
       )
       .join(
         ""
-      )}</div><p class="accounting-note">初始净支出 ${money(a.debit)}，其中建仓费 ${money(a.fees)}。费用只扣除一次。</p><div class="callout">${icon("bulb", 20)}<p>${isChallenge ? (r.pass ? level.lesson : "先查看未通过的条件与实际数值，再比较不同执行价或调整组合方向。需要更具体的思路，可以使用关卡提示。") : "切换到期前估值，保持建仓成本不变，再改变时间和 IV。到期前的曲线通常更圆滑，因为期权仍有时间价值。"}</p></div>${a.maxLoss === Infinity ? '<p class="negative">这个组合存在无限损失风险。当前图表的价格范围无法展示全部潜在损失。</p>' : ""}<div class="modal-actions"><button class="outline-button" data-action="export">${icon("download", 15)}导出记录</button><button class="primary-button" data-action="${r?.pass ? (activeIndex() < activeLevels().length - 1 ? "next" : "finish") : "close"}">${r?.pass ? (activeIndex() < activeLevels().length - 1 ? "下一关" : "查看学习进度") : "继续探索"}${icon("arrow", 16)}</button></div>`,
+      )}</div><p class="accounting-note">初始净支出 ${money(a.debit)}，其中建仓费 ${money(a.fees)}。费用只扣除一次。</p><div class="callout">${icon("bulb", 20)}<p>${isChallenge ? (r.pass ? escapeText(level.lesson) : "先查看未通过的条件与实际数值，再比较不同执行价或调整组合方向。需要更具体的思路，可以使用关卡提示。") : "切换到期前估值，保持建仓成本不变，再改变时间和 IV。到期前的曲线通常更圆滑，因为期权仍有时间价值。"}</p></div>${a.maxLoss === Infinity ? '<p class="negative">这个组合存在无限损失风险。当前图表的价格范围无法展示全部潜在损失。</p>' : ""}<div class="modal-actions"><button class="outline-button" data-action="export">${icon("download", 15)}导出记录</button><button class="primary-button" data-action="${r?.pass ? (activeIndex() < activeLevels().length - 1 ? "next" : "finish") : "close"}">${r?.pass ? (activeIndex() < activeLevels().length - 1 ? "下一关" : "查看学习进度") : "继续探索"}${icon("arrow", 16)}</button></div>`,
     true
   );
 }
@@ -498,7 +610,7 @@ function exportRecord() {
   const a = analyze(legs);
   const payload = {
     application: "交易游乐场 · 期权积木",
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     market: market(),
     progress,
@@ -534,7 +646,9 @@ function exportRecord() {
 }
 function setLevel(i) {
   persist();
-  if (mode === "transfer") transferIndex = Math.max(0, Math.min(2, i));
+  if (mode === "course")
+    courseIndex = Math.max(0, Math.min(courseLessons.length - 1, i));
+  else if (mode === "transfer") transferIndex = Math.max(0, Math.min(2, i));
   else {
     levelIndex = Math.max(0, Math.min(5, i));
     mode = "challenge";
@@ -626,6 +740,14 @@ document.addEventListener("click", e => {
     case "compare":
       compare();
       break;
+    case "opencourse":
+      persist();
+      mode = "course";
+      courseIndex = Number(d.index);
+      restore();
+      persist();
+      navTo("play");
+      break;
     case "opentransfer":
       persist();
       mode = "transfer";
@@ -716,6 +838,27 @@ document.addEventListener("click", e => {
       closeModal();
       toast("已载入示范。观察每条腿如何改变曲线，再点击检验组合。");
       break;
+    case "impossible": {
+      const proof = enumerate(current());
+      if (proof.feasible) {
+        toast("当前任务有可行解，继续调整组合。");
+        break;
+      }
+      progress.completed[current().id] = {
+        stars: Math.max(1, 3 - (hints[current().id] || 0)),
+        legs: [],
+        certificate: proof,
+        completedAt: new Date().toISOString(),
+        modelVersion: 3,
+      };
+      persist();
+      render();
+      openModal(
+        "当前条件内，没有可行组合",
+        `<p class="modal-lead">${escapeText(proof.scope)}</p><p class="muted">已检查 ${proof.checked} 个枚举节点。空组合不能满足非空提交要求，其余允许持仓均无法同时满足条件。这不是对所有合约集合的无解断言。</p><div class="callout">${icon("bulb", 18)}<p>${escapeText(current().lesson)}</p></div>`
+      );
+      break;
+    }
     case "submit":
     case "report":
       report();
@@ -730,7 +873,7 @@ document.addEventListener("click", e => {
       navTo("progress");
       break;
     case "start":
-      navTo("play");
+      navTo(d.game === "gamma" ? "gamma" : "play");
       break;
     case "export":
       exportRecord();
@@ -750,7 +893,7 @@ document.addEventListener("click", e => {
     case "presets":
       openModal(
         "从经典组合开始",
-        `<p>载入后仍可自由改变方向与数量。</p><div class="preset-list">${LEVELS.map((l, i) => `<button data-action="preset" data-index="${i}"><span><b>${l.topic}</b><small>${l.concept}</small></span>${icon("arrow", 18)}</button>`).join("")}</div>`
+        `<p>载入后仍可自由改变方向与数量。</p><div class="preset-list">${LEVELS.map((l, i) => `<button data-action="preset" data-index="${i}"><span><b>${escapeText(l.topic)}</b><small>${l.concept}</small></span>${icon("arrow", 18)}</button>`).join("")}</div>`
       );
       break;
     case "preset":
@@ -776,7 +919,7 @@ document.addEventListener("input", e => {
   }
   document.querySelector("#chart-wrap").innerHTML = chartSvg();
   bindChart();
-  const v = pnl(legs, scenario, chartMode === "expiry" ? 0 : days, vol / 100);
+  const v = pnl(legs, scenario, chartMode !== "mark" ? 0 : days, vol / 100);
   document.querySelector("#scenario-price").textContent = "$" + scenario;
   const el = document.querySelector("#scenario-pnl");
   el.textContent = signed(v);
@@ -849,3 +992,5 @@ document.addEventListener("keydown", e => {
   }
 });
 render();
+if (route === "share")
+  queueMicrotask(() => contentUI.previewShare(location.hash.slice(7)));

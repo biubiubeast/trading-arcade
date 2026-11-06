@@ -11,6 +11,8 @@ const empty = () => ({
   lastLevel: 0,
   lastTransfer: 0,
   lastMode: "challenge",
+  customCourse: null,
+  lastCourse: 0,
 });
 export function readProgress(storage) {
   try {
@@ -44,6 +46,14 @@ export function readProgress(storage) {
         predictions[id] = { choice: a.choice };
     return {
       ...empty(),
+      customCourse:
+        p.customCourse && typeof p.customCourse === "object"
+          ? p.customCourse
+          : null,
+      lastCourse:
+        Number.isInteger(p.lastCourse) && p.lastCourse >= 0 && p.lastCourse < 12
+          ? p.lastCourse
+          : 0,
       completed,
       hintUse,
       predictions,
@@ -61,7 +71,9 @@ export function readProgress(storage) {
         p.lastTransfer < 3
           ? p.lastTransfer
           : 0,
-      lastMode: ["challenge", "transfer", "sandbox"].includes(p.lastMode)
+      lastMode: ["challenge", "transfer", "sandbox", "course"].includes(
+        p.lastMode
+      )
         ? p.lastMode
         : "challenge",
     };
