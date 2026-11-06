@@ -21,6 +21,16 @@ export const GAMES = [
     color: "purple",
   },
   {
+    id: "structured",
+    name: "结构化产品工坊",
+    en: "STRUCTURED STUDIO",
+    status: "live",
+    icon: "shield",
+    tag: "条款与预算",
+    description: "理解客户，为每一项承诺找到资金来源。",
+    color: "orange",
+  },
+  {
     id: "quote",
     name: "做市商小店",
     en: "QUOTECRAFT",

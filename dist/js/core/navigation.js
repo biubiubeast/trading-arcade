@@ -1,6 +1,7 @@
 export const ROUTES = new Set([
   "play",
   "gamma",
+  "structured",
   "games",
   "courses",
   "learn",

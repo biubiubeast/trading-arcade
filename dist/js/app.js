@@ -20,6 +20,7 @@ import {
 import { comparisonPlot } from "./core/comparison.js";
 import { shell as appShell } from "./core/shell.js";
 import { routeFromHash, createRouter } from "./core/navigation.js";
+import { createStructuredGame } from "./structured/view.js";
 import { createGammaGame } from "./gamma/view.js";
 import { createContentUI, runtimeCourse } from "./course-ui.js";
 import { normalizePack, portablePack, enumerate } from "./content.js";
@@ -130,11 +131,17 @@ window.addEventListener("hashchange", () => {
 });
 
 const gammaGame = createGammaGame({ openModal, closeModal, toast });
+const structuredGame = createStructuredGame({ openModal, closeModal, toast });
 const gameRouter = createRouter(id =>
-  id === "gamma" ? gammaGame : { mount() {}, unmount() {} }
+  id === "gamma"
+    ? gammaGame
+    : id === "structured"
+      ? structuredGame
+      : { mount() {}, unmount() {} }
 );
 const contentUI = createContentUI({
   progress,
+  refresh: render,
   builtins: [...LEVELS, ...TRANSFERS],
   getCourse: () => coursePack,
   getWorkspace: () => ({ level: current(), legs, market: market() }),
@@ -177,34 +184,35 @@ function shell() {
   return appShell({
     route,
     completed: completed(),
-    main:
-      route === "gamma"
-        ? '<div id="game-root"></div>'
-        : route === "courses"
-          ? contentUI.view()
-          : route === "games"
-            ? gamesView()
-            : route === "learn"
-              ? learnView()
-              : route === "progress"
-                ? progressView()
-                : route === "roadmap"
-                  ? roadmapView()
-                  : playView(),
+    main: ["gamma", "structured"].includes(route)
+      ? '<div id="game-root"></div>'
+      : route === "courses"
+        ? contentUI.view()
+        : route === "games"
+          ? gamesView()
+          : route === "learn"
+            ? learnView()
+            : route === "progress"
+              ? progressView()
+              : route === "roadmap"
+                ? roadmapView()
+                : playView(),
   });
 }
 function render() {
   document.title =
-    (route === "gamma"
-      ? "波动率捕手"
-      : route === "courses"
-        ? "课程工坊"
-        : "期权积木") + " · 交易游乐场";
+    (route === "structured"
+      ? "结构化产品工坊"
+      : route === "gamma"
+        ? "波动率捕手"
+        : route === "courses"
+          ? "课程工坊"
+          : "期权积木") + " · 交易游乐场";
   const active = document.activeElement;
   const key = active?.dataset?.action ? { ...active.dataset } : null;
   app.innerHTML = shell();
   gameRouter.mount(
-    route === "gamma" ? "gamma" : "static",
+    ["gamma", "structured"].includes(route) ? route : "static",
     document.querySelector("#game-root") || document.querySelector("#main")
   );
   bindChart();
@@ -471,57 +479,44 @@ function progressView() {
 function roadmapView() {
   const phases = [
     {
-      n: "01",
-      status: "已上线 · Payoff v0.3",
-      title: "把结构变成可共享的任务",
-      text: "期权积木",
+      status: "已交付 · 期权积木 v0.4",
+      title: "从解题，到制作课程",
       items: [
-        "课程包校验、模板与导入预览",
-        "到期支付 / 到期损益 / 提前估值",
-        "现金腿复制与有限枚举无解证明",
-        "组合分享、重新判题、对照叠加",
+        "可视化编辑与参考解校验",
+        "多课程收藏、内容修订和冲突预览",
+        "保留旧版任务成绩与草稿",
       ],
-      cls: "current",
     },
     {
-      n: "02",
-      status: "已上线 · Gamma v0.1",
-      title: "沿时间管理一份风险",
-      text: "波动率捕手",
+      status: "已交付 · 波动率捕手 v0.2",
+      title: "先定规则，再看分布",
       items: [
-        "六个短场景与逐回合对冲",
-        "现金账本、结算、三种基准",
-        "Greeks 近似归因与残差",
-        "种子复现、暂停恢复与本局导出",
+        "首次预测与一句话复盘",
+        "锁定阈值、对冲间隔、费用与价差",
+        "32 条新路径对照与成本敏感性",
       ],
-      cls: "current",
     },
     {
-      n: "03",
-      status: "下一版 · 先验证再扩展",
-      title: "让反馈更准确，规则更可迁移",
-      text: "v0.3.1 / Gamma v0.2",
+      status: "首个版本 · 产品工坊 v0.1",
+      title: "让每项承诺都有资金来源",
+      items: [
+        "部分保护参与型、到期收益增强、已有现货 Collar",
+        "客户硬约束、资金来源和风险解释",
+        "客户与发行方 / 执行柜台双面账本",
+      ],
+    },
+    {
+      status: "下一步 · 先补学习证据",
+      title: "让理解走得更远",
       items: [
         "5–8 位学习者观察与交互修正",
-        "更多预测节点与事后解释问题",
-        "自定义对冲阈值与成本实验",
-        "多条未见路径的风险 / 成本对照",
-      ],
-    },
-    {
-      n: "04",
-      status: "后续产品方向",
-      title: "把需求和模型接起来",
-      text: "结构化产品工坊与新游戏",
-      items: [
-        "先做三种模板和明确预算约束",
-        "区分客户支付与发行方对冲账本",
-        "QuoteCraft：库存与逆向选择",
-        "Alpha 侦探局：泄漏与样本外证据",
+        "课程分层提示、找错题与资金条件",
+        "对冲规则的预注册多批次评估",
+        "工坊报价、信用风险与发行方动态对冲",
       ],
     },
   ];
-  return `${pageHeading("BUILD IN THE OPEN", "从一条曲线，<br>走向一段风险路径。", "本版按你的要求将波动率捕手提前实现。结构化产品工坊仍是后续方向。")}<div class="roadmap-intro"><span class="status-dot"></span>期权积木 v0.3 + 波动率捕手 v0.1<span>单人 / 浏览器 / 教学模拟</span></div><div class="roadmap-grid">${phases.map(p => `<article class="roadmap-card ${p.cls || ""}"><span class="roadmap-number">${p.n}</span><span class="pill">${p.status}</span><h2>${p.title}</h2><p>${p.text}</p><ul>${p.items.map(s => `<li>${icon("check", 14)}${s}</li>`).join("")}</ul></article>`).join("")}</div><section class="panel explain-panel"><h2>先问是否理解，再看是否盈利。</h2><p class="muted">期权积木观察预测、任务约束和迁移；波动率捕手分别呈现风险区间、交易成本和最终盈亏。当前没有正式用户研究、专业能力认证或服务端排行榜。</p><div class="learning-loop"><span>读懂条件</span>${icon("arrow", 18)}<span>作出预测</span>${icon("arrow", 18)}<span>操作与核算</span>${icon("arrow", 18)}<span>解释取舍</span>${icon("arrow", 18)}<span>换条件重试</span></div></section>`;
+  return `${pageHeading("NEXT CHAPTER", "从设计结构，<br>到解释每笔现金。", "本版交付三款游戏；下一步围绕学习者反馈和模型边界继续推进。")}<div class="roadmap-intro"><span class="status-dot"></span>平台 v0.4 · 三款训练场<span>浏览器本地记录 · 合成教学市场</span></div><div class="roadmap-grid">${phases.map((p, i) => `<article class="roadmap-card ${i < 3 ? "current" : ""}"><span class="roadmap-number">0${i + 1}</span><span class="pill">${p.status}</span><h2>${p.title}</h2><ul>${p.items.map(x => `<li>${icon("check", 14)}${x}</li>`).join("")}</ul></article>`).join("")}</div><section class="panel explain-panel"><h2>完成，不自动等于理解。</h2><p class="muted">星级、首次预测、风险区间和解释分别记录。尚未执行正式学习者研究，也不提供专业能力认证或真实市场表现保证。未来扩展融资、保证金、信用和障碍条款时，先明确资金与风险规则，再增加玩法。</p></section>`;
 }
 
 function openModal(title, body, wide = false) {
@@ -873,7 +868,7 @@ document.addEventListener("click", e => {
       navTo("progress");
       break;
     case "start":
-      navTo(d.game === "gamma" ? "gamma" : "play");
+      navTo(["gamma", "structured"].includes(d.game) ? d.game : "play");
       break;
     case "export":
       exportRecord();

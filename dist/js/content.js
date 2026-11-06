@@ -12,19 +12,27 @@ const plain = x =>
   typeof x === "object" &&
   !Array.isArray(x) &&
   [Object.prototype, null].includes(Object.getPrototypeOf(x));
-function object(x, keys) {
+function object(x, keys, field = "结构") {
   if (!plain(x) || Object.keys(x).some(k => !keys.includes(k)))
-    throw Error("结构包含未知字段");
+    throw Error(
+      `${field}：结构无效或包含未知字段 ${
+        plain(x)
+          ? Object.keys(x)
+              .filter(k => !keys.includes(k))
+              .join(", ")
+          : ""
+      }`
+    );
   return x;
 }
-function text(x, max = 120) {
+function text(x, max = 120, field = "文字") {
   if (typeof x !== "string" || !x.trim() || x.length > max)
-    throw Error("文字为空或过长");
+    throw Error(`${field}：文字为空或超过 ${max} 字符`);
   return x.trim();
 }
-function num(x, min, max) {
+function num(x, min, max, field = "数值") {
   if (!Number.isFinite(x) || x < min || x > max)
-    throw Error("数值超出允许范围");
+    throw Error(`${field}：须为 ${min}–${max} 的有限数`);
   return x;
 }
 const id = x => {
@@ -64,13 +72,18 @@ export function normalizeLesson(raw) {
   ]);
   const lesson = {
     id: id(raw.id),
-    title: text(raw.title, 60),
-    topic: text(raw.topic, 60),
-    brief: text(raw.brief, 1000),
-    hint: text(raw.hint || "观察成本、执行价与最大风险之间的关系。", 500),
+    title: text(raw.title, 60, "title"),
+    topic: text(raw.topic, 60, "topic"),
+    brief: text(raw.brief, 1000, "brief"),
+    hint: text(
+      raw.hint ?? "观察成本、执行价与最大风险之间的关系。",
+      500,
+      "hint"
+    ),
     lesson: text(
-      raw.lesson || "把每个条件与实际数值对应，再解释组合的取舍。",
-      1000
+      raw.lesson ?? "把每个条件与实际数值对应，再解释组合的取舍。",
+      1000,
+      "lesson"
     ),
     difficulty: "课程",
     time: "5 分钟",
@@ -83,21 +96,23 @@ export function normalizeLesson(raw) {
     new Set(raw.types).size !== raw.types.length ||
     raw.types.some(t => !TYPES.includes(t))
   )
-    throw Error("工具类型无效");
+    throw Error("types：工具类型无效");
   if (
     !Array.isArray(raw.strikes) ||
     !raw.strikes.length ||
     raw.strikes.length > 7 ||
     new Set(raw.strikes).size !== raw.strikes.length
   )
-    throw Error("执行价列表无效");
+    throw Error("strikes：执行价列表无效");
   lesson.types = [...raw.types];
-  lesson.strikes = raw.strikes.map(k => num(k, 1, 1000)).sort((a, b) => a - b);
+  lesson.strikes = raw.strikes
+    .map((k, i) => num(k, 1, 1000, `strikes[${i}]`))
+    .sort((a, b) => a - b);
   if (typeof raw.sell !== "boolean" || !Number.isInteger(raw.maxUnits))
-    throw Error("方向或单位限制无效");
+    throw Error("sell / maxUnits：方向须为布尔值，单位上限须为整数");
   lesson.sell = raw.sell;
-  lesson.maxUnits = num(raw.maxUnits, 1, 8);
-  const m = object(raw.market || MARKET, [
+  lesson.maxUnits = num(raw.maxUnits, 1, 8, "maxUnits");
+  const m = object(raw.market === undefined ? MARKET : raw.market, [
     "spot",
     "days",
     "vol",
@@ -105,27 +120,31 @@ export function normalizeLesson(raw) {
     "multiplier",
   ]);
   lesson.market = {
-    spot: num(m.spot, 10, 500),
-    days: num(m.days, 1, 365),
-    vol: num(m.vol, 0.05, 2),
-    fee: num(m.fee, 0, 20),
+    spot: num(m.spot, 10, 500, "market.spot"),
+    days: num(m.days, 1, 365, "market.days"),
+    vol: num(m.vol, 0.05, 2, "market.vol"),
+    fee: num(m.fee, 0, 20, "market.fee"),
     multiplier: 1,
   };
   if (m.multiplier !== undefined && m.multiplier !== 1)
-    throw Error("当前课程只支持乘数 1");
+    throw Error("market.multiplier：当前课程只支持乘数 1");
   if (!Array.isArray(raw.goals) || !raw.goals.length || raw.goals.length > 12)
-    throw Error("任务条件必须为 1–12 条");
-  lesson.goals = raw.goals.map(g => {
-    object(g, ["kind", "limit", "op", "spot"]);
+    throw Error("goals：任务条件必须为 1–12 条");
+  lesson.goals = raw.goals.map((g, i) => {
+    object(g, ["kind", "limit", "op", "spot"], `goals[${i}]`);
     if (!KINDS.includes(g.kind) || !["lte", "gte"].includes(g.op))
-      throw Error("条件类型无效");
-    const out = { kind: g.kind, limit: num(g.limit, -10000, 10000), op: g.op };
+      throw Error(`goals[${i}].kind / op：条件类型无效`);
+    const out = {
+      kind: g.kind,
+      limit: num(g.limit, -10000, 10000, `goals[${i}].limit`),
+      op: g.op,
+    };
     if (["scenario", "payoff"].includes(g.kind))
-      out.spot = num(g.spot, 0, 2000);
+      out.spot = num(g.spot, 0, 2000, `goals[${i}].spot`);
     return out;
   });
   if (raw.infeasible !== undefined && typeof raw.infeasible !== "boolean")
-    throw Error("不可行标记无效");
+    throw Error("infeasible：不可行标记无效");
   lesson.infeasible = !!raw.infeasible;
   if (lesson.infeasible) {
     if (raw.solution !== undefined) throw Error("不可行任务不能带参考解");
@@ -139,9 +158,13 @@ export function normalizeLesson(raw) {
     if (certificate.feasible) throw Error("声称无解的任务存在可行组合");
     lesson.certificate = certificate;
   } else {
+    if (!Array.isArray(raw.solution)) throw Error("solution：须为参考腿数组");
+    raw.solution.forEach((leg, i) =>
+      object(leg, ["type", "strike", "qty"], `solution[${i}]`)
+    );
     lesson.solution = validDraft(raw.solution, lesson);
     if (!lesson.solution.length || !checkLevel(lesson, lesson.solution).pass)
-      throw Error("参考组合不满足任务条件");
+      throw Error("solution：参考组合不满足任务条件或工具限制");
   }
   return lesson;
 }
@@ -153,7 +176,7 @@ export function normalizePack(raw) {
     format: "arcade-course",
     version: 1,
     id: id(raw.id),
-    title: text(raw.title, 80),
+    title: text(raw.title, 80, "title"),
   };
   if (
     !Array.isArray(raw.lessons) ||
@@ -161,7 +184,13 @@ export function normalizePack(raw) {
     raw.lessons.length > LIMITS.lessons
   )
     throw Error("课程必须为 1–12 道任务");
-  result.lessons = raw.lessons.map(normalizeLesson);
+  result.lessons = raw.lessons.map((lesson, i) => {
+    try {
+      return normalizeLesson(lesson);
+    } catch (error) {
+      throw Error(`lessons[${i}]：${error.message}`);
+    }
+  });
   if (new Set(result.lessons.map(l => l.id)).size !== result.lessons.length)
     throw Error("课程任务 ID 重复");
   return result;

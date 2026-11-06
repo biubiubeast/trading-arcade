@@ -1,5 +1,5 @@
 import { value, cdf } from "../engine.js";
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 export const CONFIG = Object.freeze({
   capital: 10000,
   strike: 100,
@@ -9,6 +9,8 @@ export const CONFIG = Object.freeze({
   feeRate: 0.0005,
   spreadRate: 0.0005,
   maxStock: 200,
+  threshold: 15,
+  interval: 2,
 });
 const pdf = x => Math.exp((-x * x) / 2) / Math.sqrt(2 * Math.PI);
 export function greeks(spot, days, iv, c = CONFIG) {
@@ -312,11 +314,11 @@ export function runPolicy(kind, seed, policy, config = {}) {
       policy === "none"
         ? 0
         : policy === "timed"
-          ? s.index % 2 === 0
+          ? s.index % (s.c.interval || 2) === 0
             ? 1
             : 0
           : policy === "threshold"
-            ? d > 15
+            ? d > (s.c.threshold || 15)
               ? 1
               : 0
             : 1;
@@ -354,7 +356,7 @@ export function result(state) {
     peak = Math.max(peak, e);
     drawdown = Math.max(drawdown, peak - e);
   }
-  const within = exposures.filter(d => d <= 15).length;
+  const within = exposures.filter(d => d <= (state.c.threshold || 15)).length;
   return {
     pnl,
     optionGross,
